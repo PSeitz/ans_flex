@@ -1,17 +1,17 @@
 /*!
 ans_flex is a FSE/ANS implementation in Rust, a compressor in the family of entropy encoders (statistical compression).
 
-FSE (Finite State Entropy) is a ANS variant from Yann Collet. Main advantage is, that it requires only additions, 
-masks, and shifts. 
+FSE (Finite State Entropy) is a ANS variant from Yann Collet. Main advantage is, that it requires only additions,
+masks, and shifts.
 
 ANS (Asymetric Numeral Systems) was introduced by Jarek Duda and is the defacto compression standard
 used in popular compression algorithms like zstd, due to its high compression ration and reasonable
 compression speed. In comparison to huffman it has the advantage to using fractional bits, when encoding symbols.
 
-If you want a better understanding of ANS, I can recommend "Understanding Compression" by Colton 
+If you want a better understanding of ANS, I can recommend "Understanding Compression" by Colton
 McAnlis and Aleks Haecky as the foundation and then diving into the blog posts of [Charles Bloom](http://cbloomrants.blogspot.com/2014/01/1-30-14-understanding-ans-1.html)
 and [Yann Collet](https://fastcompression.blogspot.com/2013/12/finite-state-entropy-new-breed-of.html)
-The [ANS paper](https://arxiv.org/pdf/1311.2540.pdf) from Jarek Duda is also interesting, but without a solid 
+The [ANS paper](https://arxiv.org/pdf/1311.2540.pdf) from Jarek Duda is also interesting, but without a solid
 foundation in math and compression it will be difficult to follow.
 
 */
@@ -116,6 +116,47 @@ pub fn count_unrolled(input: &[u8]) -> CountsTable {
     *counts
 }
 
+// should be a generic eventually
+type FseFunctionType = u8;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FseSymbolCompressionTransform {
+    deltaFindState: i32,
+    deltaNbBits: u32,
+}
+
+impl FseSymbolCompressionTransform {
+    /// Approximate maximum cost of a symbol, in bits.
+    ///
+    /// Fractional get rounded up (i.e : a symbol with a normalized frequency of 3 gives the same result as a frequency of 2)
+    /// note 1 : assume symbolValue is valid (<= maxSymbolValue)
+    /// note 2 : if freq[symbolValue]==0, @return a fake cost of tableLog+1 bits */
+    pub fn fse_get_max_nb_bits(&self) -> u32 {
+        self.deltaNbBits + ((1 << 16) - 1) >> 16
+    }
+
+    /// Approximate symbol cost, as fractional value, using fixed-point format (accuracy_log fractional bits)
+    ///
+    /// note 1 : assume symbolValue is valid (<= maxSymbolValue)
+    /// note 2 : if freq[symbolValue]==0, @return a fake cost of tableLog+1 bits */
+    pub fn fse_bit_cost(&self, table_log: u32, accuracy_log: u32) -> u32 {
+        let min_nb_bits: u32 = self.deltaNbBits >> 16;
+        let threshold: u32 = (min_nb_bits + 1) << 16;
+
+        assert!(table_log < 16);
+        assert!(accuracy_log < 31 - table_log);
+        let table_size = 1 << table_log;
+
+        let delta_from_threshold: u32 = threshold - (self.deltaNbBits + table_size);
+        let normalized_delta_from_threshold: u32 =
+            (delta_from_threshold << accuracy_log) >> table_log; /* linear interpolation (very approximate) */
+        let bit_multiplier: u32 = 1 << accuracy_log;
+        assert!(self.deltaNbBits + table_size <= threshold);
+        assert!(normalized_delta_from_threshold <= bit_multiplier);
+        return (min_nb_bits + 1) * bit_multiplier - normalized_delta_from_threshold;
+    }
+}
+
 /// Creating an ANSTable consists of following steps
 ///
 /// 1. count symbol occurrence from source[] into table count[] (see hist.h)
@@ -128,18 +169,123 @@ pub fn count_unrolled(input: &[u8]) -> CountsTable {
 ///
 /// get_normalized_counts() will ensure that sum of frequencies is == 2 ^ tableLog.
 pub fn build_table(
-    counts: &NormCountsTable,
+    norm_counts: &NormCountsTable,
     table_log: u32,
     src_size: usize,
     max_symbol_value: u32,
 ) {
-
     let table_size = 1 << table_log;
-    let mut table = vec![];
+    debug!("table_size {:?}", table_size);
+    let step = fse_tablestep(table_size);
+    let table_mask = table_size - 1;
+    let mut highThreshold = table_size - 1;
 
+    let mut cumul = vec![0_u32; max_symbol_value as usize + 2];
+
+    // tmp table - TODO Could be externally allocated and reused
+    // This is the classical table symbol table, where the state equals its position in the table
+    // In the classical approach, they are illustrated like this
+    // State    A    B    C
+    // 1        2    3    5
+    // 2        4    6    10
+    // 3        7    8    15
+    //
+    let mut tableSymbol = vec![0_u8; table_size];
+
+    // out table
     // get_ans_table_size will return usually a smaller value that table_size
-    // I'm not sure why
-    table.resize(get_ans_table_size(table_log, max_symbol_value) as usize, 0_u32);
+    // Currently not clear why - 05.02.2021
+    // let mut compression_table = vec![0_u32, get_ans_table_size(table_log, max_symbol_value)];
+
+    // table.resize(get_ans_table_size(table_log, max_symbol_value) as usize, 0_u32);
+
+    // symbol start positions
+    debug!("max_symbol_value{:?}", max_symbol_value);
+    for u in 1..max_symbol_value as usize + 1 {
+        if norm_counts[u - 1] == -1 {
+            // Low proba symbol
+            cumul[u] = cumul[u - 1] + 1;
+            tableSymbol[highThreshold] = (u - 1) as u8;
+            highThreshold -= 1;
+        } else {
+            cumul[u] = cumul[u - 1] + norm_counts[u - 1] as u32;
+        }
+        print!("{:?}, ", cumul[u]);
+        // trace!("{:?}", cumul[u]);
+    }
+    cumul[max_symbol_value as usize + 1] = table_size as u32 + 1;
+    trace!("{:?}", cumul[max_symbol_value as usize + 1]);
+
+    // Spread symbols int the symbol table
+    // the distribution is no perfect, but close enough
+    {
+        let mut position = 0;
+        for symbol in 0..max_symbol_value {
+            let freq = norm_counts[symbol as usize];
+            for _ in 0..freq {
+                tableSymbol[position] = symbol as u8;
+                position = (position + step) & table_mask;
+                while position > highThreshold {
+                    position = (position + step) & table_mask; // Low proba area
+                }
+            }
+        }
+
+        if log_enabled!(Trace) {
+            for position in 0..table_size {
+                trace!("tableSymbol[{:?}] {:?}", position, tableSymbol[position]);
+            }
+        }
+
+        assert!(position == 0);
+    }
+
+    let mut table_u16 = vec![0_u16; cumul[max_symbol_value as usize + 1] as usize];
+    // Build Table
+    {
+        for u in 0..table_size {
+            let s = tableSymbol[u];
+            table_u16[cumul[s as usize] as usize] = table_size as u16 + u as u16; // table_u16 : sorted by symbol order; gives next state value
+            cumul[s as usize] += 1;
+        }
+
+        // if log_enabled!(Trace) {
+        //     for (position, val) in table_u16.iter().enumerate() {
+        //         trace!("table_u16[{:?}] {:?}", position, val);
+        //     }
+        //     // trace!("table_u16[{:?}] {:?}", 0, table_u16[0]);
+        // }
+    }
+
+    // The symbol transformation table will help encoding input streams
+    let mut symbol_tt = vec![FseSymbolCompressionTransform::default(); max_symbol_value as usize];
+
+    // Build Symbol Transformation Table
+    {
+        let mut total = 0_i32;
+        for symbol in 0..max_symbol_value as usize {
+            let norm_count = norm_counts[symbol as usize];
+            match norm_count {
+                0 => {
+                    symbol_tt[symbol as usize].deltaNbBits =
+                        ((table_log + 1) << 16) - (1 << table_log)
+                }
+                -1 | 1 => {
+                    symbol_tt[symbol].deltaNbBits = (table_log << 16) - (1 << table_log);
+                    symbol_tt[symbol].deltaFindState = total - 1;
+                    total += 1;
+                }
+                _ => {
+                    let max_bits_out: u32 =
+                        table_log - bit_highbit32(norm_counts[symbol] as u32 - 1);
+                    let min_state_plus: u32 = (norm_counts[symbol] as u32) << max_bits_out;
+                    symbol_tt[symbol].deltaNbBits = (max_bits_out << 16) - min_state_plus;
+                    symbol_tt[symbol].deltaFindState = total - norm_counts[symbol] as i32;
+                    total += norm_counts[symbol] as i32;
+                }
+            }
+        }
+    }
 }
 
 pub fn get_ans_table_size(mut table_log: u32, max_symbol_value: u32) -> u32 {
@@ -326,6 +472,17 @@ fn get_num_symbols(counts: &CountsTable) -> usize {
 #[cfg(test)]
 mod tests {
 
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    /// Setup function that is only run once, even if called multiple times.
+    fn setup() {
+        INIT.call_once(|| {
+            env_logger::init();
+        });
+    }
+
     use super::*;
 
     const A_BYTE: u8 = "a".as_bytes()[0];
@@ -353,7 +510,7 @@ mod tests {
 
     #[test]
     fn test_statistic_fns() {
-        env_logger::init();
+        setup();
         let test_data = get_test_data();
 
         let counts = count_simple(&test_data);
@@ -383,10 +540,22 @@ mod tests {
 
     #[test]
     fn test_create_table() {
+        setup();
         let test_data = get_test_data();
         let counts = count_simple(&test_data);
         assert_eq!(counts[A_BYTE as usize], 45);
         assert_eq!(counts[B_BYTE as usize], 35);
         assert_eq!(counts[C_BYTE as usize], 20);
+
+        let table_log =
+            fse_optimal_table_log(FSE_DEFAULT_TABLELOG, test_data.len(), FSE_MAX_SYMBOL_VALUE);
+
+        let norm_counts = get_normalized_counts(&counts, table_log, test_data.len(), 255);
+        build_table(
+            &norm_counts,
+            table_log,
+            test_data.len(),
+            FSE_MAX_SYMBOL_VALUE,
+        );
     }
 }

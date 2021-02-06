@@ -1,9 +1,9 @@
 extern crate criterion;
 
-use ans_flex::count_unrolled;
-use ans_flex::count_simple;
-use std::iter;
 use self::criterion::*;
+use ans_flex::count_simple;
+use ans_flex::count_unrolled;
+use std::iter;
 
 const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");
 const COMPRESSION34K: &'static [u8] = include_bytes!("compression_34k.txt");
@@ -20,17 +20,24 @@ const ALL: &[&[u8]] = &[
 ];
 
 fn from_elem(c: &mut Criterion) {
-
     let mut group = c.benchmark_group("count");
     for input in ALL.iter() {
         let input_bytes = input.len() as u64;
         group.throughput(Throughput::Bytes(input_bytes));
-        group.bench_with_input(BenchmarkId::new("count_simple", input_bytes), &input, |b, i| {
-            b.iter(|| count_simple(i));
-        });
-        group.bench_with_input(BenchmarkId::new("count_unrolled", input_bytes), &input, |b, i| {
-            b.iter(|| count_unrolled(i));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("count_simple", input_bytes),
+            &input,
+            |b, i| {
+                b.iter(|| count_simple(i));
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("count_unrolled", input_bytes),
+            &input,
+            |b, i| {
+                b.iter(|| count_unrolled(i));
+            },
+        );
     }
     group.finish();
 }
