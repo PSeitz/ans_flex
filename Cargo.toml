@@ -5,12 +5,23 @@ authors = ["Pascal Seitz <pascal.seitz@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-env_logger = "0.8.2"
 log = "0.4.13"
 
 [dev-dependencies]
+env_logger = "0.8.2"
 criterion = "0.3.4"
 
 [[bench]]
 name = "benchmark"
 harness = false
+
+
+[[bin]]
+name = "prof"
+path = "src/bin/prof.rs"
+
+[profile.release]
+codegen-units = 1
+debug = true
+lto = true
+opt-level = 3
