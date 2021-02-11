@@ -16,18 +16,19 @@ foundation in math and compression it will be difficult to follow.
 
 */
 
-use crate::hist::get_max_symbol_value;
 use crate::bitstream::bit_highbit32;
 use crate::bitstream::BitCstream;
-use crate::compress::fse_compress_using_ctable_generic;
+use crate::compress::fse_compress;
 pub use crate::hist::count_simple;
+use crate::hist::get_max_symbol_value;
 use crate::hist::get_normalized_counts;
 use crate::hist::CountsTable;
-use crate::table::build_table;
+use crate::table::build_compression_table;
 use crate::table::fse_optimal_table_log;
 
 pub mod bitstream;
 pub mod compress;
+pub mod decompress;
 pub mod hist;
 pub mod table;
 
@@ -48,8 +49,6 @@ pub const HIST_WKSP_SIZE: usize = HIST_WKSP_SIZE_U32 * core::mem::size_of::<usiz
 fn fse_tablestep(table_size: usize) -> usize {
     ((table_size) >> 1) + ((table_size) >> 3) + 3
 }
-
-// #define FSE_TABLESTEP(tableSize) (((tableSize)>>1) + ((tableSize)>>3) + 3)
 
 #[derive(Debug)]
 struct Counts {
@@ -77,22 +76,24 @@ fn test_get_ans_table_size() {
 pub fn compress(input: &[u8]) -> BitCstream {
     let counts = count_simple(&input);
     let max_count = *counts.iter().max().unwrap() as usize;
-    if max_count == input.len() { panic!("use rle");};   /* only a single symbol in src : rle */
-    if max_count == 1 { panic!("not compressible");};         /* each symbol present maximum once => not compressible */
-    if max_count < (input.len() >> 7) { panic!("not compressible enough");};   /* Heuristic : not compressible enough */
+    if max_count == input.len() {
+        panic!("use rle");
+    }; // only a single symbol in src : rle
+    if max_count == 1 {
+        panic!("not compressible");
+    }; // each symbol present maximum once => not compressible
+    if max_count < (input.len() >> 7) {
+        panic!("not compressible enough");
+    }; // Heuristic : not compressible enough
 
     let max_symbol_value = get_max_symbol_value(&counts);
 
     let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
 
     let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
-    let comp_tables = build_table(
-        &norm_counts,
-        table_log,
-        max_symbol_value,
-    );
+    let comp_tables = build_compression_table(&norm_counts, table_log, max_symbol_value);
 
-    let out = fse_compress_using_ctable_generic(&input, &comp_tables, table_log);
+    let out = fse_compress(&input, &comp_tables, table_log);
     out
 }
 
@@ -297,6 +298,19 @@ mod tests {
         assert_eq!(counts[C_BYTE as usize], 20);
 
         let out = compress(&test_data);
+        dbg!(out.data_pos);
+        dbg!(out.bit_pos);
+        dbg!(out.bit_container);
+
+        // for index in 0..100 {
+        //     println!("{:?} {:?}", index, test_data[index]);
+        // }
+    }
+    #[test]
+    fn test_compress_json() {
+        setup();
+        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_66k_JSON.txt");
+        let out = compress(&TEST_DATA);
         dbg!(out.data_pos);
         dbg!(out.bit_pos);
         dbg!(out.bit_container);

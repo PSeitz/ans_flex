@@ -1,10 +1,10 @@
 extern crate criterion;
 
-use ans_flex::hist::count_multi;
-use ans_flex::hist::count_blocked_unsafe;
 use self::criterion::*;
 use ans_flex::compress;
 use ans_flex::count_simple;
+use ans_flex::hist::count_blocked_unsafe;
+use ans_flex::hist::count_multi;
 
 const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");
 const COMPRESSION34K: &'static [u8] = include_bytes!("compression_34k.txt");

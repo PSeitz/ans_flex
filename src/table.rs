@@ -48,6 +48,7 @@ impl FseSymbolCompressionTransform {
     }
 }
 
+/// provides the minimum log size to safely represent a distribution
 pub fn fse_min_table_log(src_size: usize, max_symbol_value: u32) -> u32 {
     assert!(src_size > 1); // not supported
     let min_bits_src: u32 = bit_highbit32(src_size as u32) + 1;
@@ -55,13 +56,11 @@ pub fn fse_min_table_log(src_size: usize, max_symbol_value: u32) -> u32 {
     min_bits_src.min(min_bits_symbols)
 }
 
-/// dynamically downsize 'table_log' when conditions are met.
-/// It saves CPU time, by using smaller tables, while preserving or even improving compression ratio.
-/// @return : recommended table_log (necessarily <= 'maxTableLog')
+/// calculate recommended table_log size
 pub fn fse_optimal_table_log(max_table_log: u32, src_size: usize, max_symbol_value: u32) -> u32 {
     let mut table_log = max_table_log;
 
-    // magic number minus, https://github.com/Cyan4973/FiniteStateEntropy/blob/5b3f8551695351d2a16d383c55bd7cddfd5c3813/lib/fse_compress.c#L341
+    // magic number minus 2, https://github.com/Cyan4973/FiniteStateEntropy/blob/5b3f8551695351d2a16d383c55bd7cddfd5c3813/lib/fse_compress.c#L341
     let max_bits_src = bit_highbit32(src_size as u32 - 1) - 2;
     let min_bits = fse_min_table_log(src_size, max_symbol_value);
 
@@ -86,23 +85,19 @@ fn test_table_log_limit() {
 
 /// Creating an ANSTable consists of following steps
 ///
-/// 1. count symbol occurrence from source[] into table count[] (see hist.h)
-/// 2. normalize counters so that sum(count[]) == Power_of_2 (2^table_log)
-/// 3. save normalized counters to memory buffer using writeNCount()
-/// 4. build encoding table 'CTable' from normalized counters
-/// provides the minimum logSize to safely represent a distribution
+/// 1. count symbol occurrence from input[] into table count[]
+/// 2. normalize counters so that sum(count[]) == 2^table_log
+/// 3. build encoding table 'CompressionTable' from normalized counters
 ///
-/// build_table is step 4
+/// build_table is step 3
 ///
-/// get_normalized_counts() will ensure that sum of frequencies is == 2 ^ tableLog.
-pub fn build_table(
+pub fn build_compression_table(
     norm_counts: &NormCountsTable,
     table_log: u32,
     mut max_symbol_value: u32,
 ) -> CompressionTable {
     let table_size = 1 << table_log;
     debug!("table_size {:?}", table_size);
-    let step = fse_tablestep(table_size);
     let table_mask = table_size - 1;
     let mut high_threshold = table_size - 1;
     max_symbol_value = max_symbol_value.min(FSE_MAX_SYMBOL_VALUE);
@@ -122,8 +117,6 @@ pub fn build_table(
     // get_ans_table_size will return usually a smaller value that table_size
     // Currently not clear why - 05.02.2021
     // let mut compression_table = vec![0_u32, get_ans_table_size(table_log, max_symbol_value)];
-
-    // table.resize(get_ans_table_size(table_log, max_symbol_value) as usize, 0_u32);
 
     // symbol start positions
     debug!("max_symbol_value{:?}", max_symbol_value);
@@ -145,6 +138,7 @@ pub fn build_table(
     // Spread symbols int the symbol table
     // the distribution is not perfect, but close enough
     {
+        let step = fse_tablestep(table_size);
         let mut position = 0;
         for symbol in 0..=max_symbol_value {
             let freq = norm_counts[symbol as usize];
@@ -184,7 +178,8 @@ pub fn build_table(
     }
 
     // The symbol transformation table will help encoding input streams
-    let mut symbol_tt = vec![FseSymbolCompressionTransform::default(); max_symbol_value as usize + 1];
+    let mut symbol_tt =
+        vec![FseSymbolCompressionTransform::default(); max_symbol_value as usize + 1];
 
     // Build Symbol Transformation Table
     {
@@ -193,8 +188,11 @@ pub fn build_table(
             let norm_count = norm_counts[symbol as usize];
             match norm_count {
                 0 => {
-                    symbol_tt[symbol as usize].deltaNbBits =
-                        ((table_log + 1) << 16) - (1 << table_log)
+                    if log_enabled!(Debug) {
+                        // For compatibility with fse_get_max_nb_bits()
+                        symbol_tt[symbol as usize].deltaNbBits =
+                            ((table_log + 1) << 16) - (1 << table_log)
+                    }
                 }
                 -1 | 1 => {
                     symbol_tt[symbol].deltaNbBits = (table_log << 16) - (1 << table_log);
@@ -244,3 +242,83 @@ pub fn build_table(
     }
 }
 
+pub type DecompressionTable = Vec<FseDecode>;
+
+/// Build decoding table from normalized counters
+pub fn build_decompression_table(
+    norm_counts: &NormCountsTable,
+    table_log: u32, // can be u8
+    max_symbol_value: u32,
+) -> DecompressionTable {
+    let mut next_symbol_table = vec![0_u16; max_symbol_value as usize + 1];
+    // let max_symbol_value_plus = max_symbol_value + 1;
+    let table_size = 1 << table_log;
+    let mut high_threshold = table_size - 1;
+    let mut table_decode = vec![FseDecode::default(); high_threshold];
+
+    assert!(max_symbol_value <= FSE_MAX_SYMBOL_VALUE);
+    assert!(table_log <= FSE_MAX_TABLELOG);
+
+    // build next_symbol_table
+    let large_limit: i16 = (1 << (table_log - 1)) as i16;
+    let mut fast_mode = true;
+    for symbol in 0..=max_symbol_value as usize {
+        let norm_count = norm_counts[symbol];
+        if norm_count == -1 {
+            table_decode[high_threshold].symbol = symbol as u8;
+            high_threshold -= 1;
+            next_symbol_table[symbol] = 1;
+        } else {
+            if norm_count > large_limit {
+                fast_mode = false;
+            }
+            next_symbol_table[symbol] = norm_count as u16;
+        }
+    }
+
+    // spread symbols - TODO basically the same as in compression
+    {
+        let table_mask = table_size - 1;
+        let step = fse_tablestep(table_size);
+        let mut position = 0;
+        for symbol in 0..=max_symbol_value {
+            let freq = norm_counts[symbol as usize];
+            for _ in 0..freq {
+                table_decode[position].symbol = symbol as u8;
+                position = (position + step) & table_mask;
+                while position > high_threshold {
+                    position = (position + step) & table_mask; // Low proba area
+                }
+            }
+        }
+
+        if log_enabled!(Trace) {
+            for position in 0..table_size {
+                trace!(
+                    "table_decode[{:?}] {:?}",
+                    position,
+                    table_decode[position].symbol
+                );
+            }
+        }
+
+        assert!(position == 0);
+    }
+
+    for u in 0..table_size {
+        let mut decode_state = table_decode[u];
+        let symbol = decode_state.symbol as usize;
+        let next_state = next_symbol_table[symbol];
+        next_symbol_table[symbol] += 1;
+        decode_state.nbBits = table_log as u8 - bit_highbit32(next_state as u32) as u8;
+        decode_state.newState = (next_state << decode_state.nbBits) - table_size as u16;
+    }
+    table_decode
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FseDecode {
+    pub newState: u16,
+    pub symbol: u8,
+    pub nbBits: u8,
+}

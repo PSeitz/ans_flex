@@ -1,4 +1,5 @@
 use crate::bitstream::BitCstream;
+use crate::bitstream::BIT_CONTAINER_SIZE;
 use crate::table::CompressionTable;
 use crate::FSE_MAX_TABLELOG;
 
@@ -7,7 +8,7 @@ pub const FSE_NCOUNTBOUND: usize = 512;
 
 #[inline]
 fn fse_blockbound(size: usize) -> usize {
-    size + (size>>7) + 4 /* fse states */ + core::mem::size_of::<usize>() /* bitContainer */
+    size + (size>>7) + 4 /* fse states */ + BIT_CONTAINER_SIZE
 }
 
 #[inline]
@@ -16,11 +17,7 @@ fn fse_compressbound(size: usize) -> usize {
 }
 
 #[inline]
-pub fn fse_compress_using_ctable_generic(
-    input: &[u8],
-    comp: &CompressionTable,
-    table_log: u32,
-) -> BitCstream {
+pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> BitCstream {
     assert!(input.len() > 2);
     let max_compressed_size = fse_compressbound(input.len());
 
@@ -45,12 +42,10 @@ pub fn fse_compress_using_ctable_generic(
         (state1, state2)
     };
 
-    const BIT_CONTAINER_SIZE: usize = core::mem::size_of::<usize>();
-
     // join to mod 4
     if (BIT_CONTAINER_SIZE * 8 > FSE_MAX_TABLELOG as usize * 4 + 7)
+        // test bit 2
         && (((input.len() - 2) & 2) == 2)
-    // test bit 2
     {
         index -= 1;
         fse_encode_symbol(&mut bit_c, &mut state2, comp, input[index]);
@@ -59,30 +54,7 @@ pub fn fse_compress_using_ctable_generic(
         bit_c.flush_bits_fast();
     }
 
-    // index+=1; // adding one, to avoid buffer overflow
-    // while index > 0 {
-    //     index-=1;
-    //     fse_encode_symbol(&mut bit_c, &mut state2, comp, input[index]);
-    //     index-=1;
-
-    //     if BIT_CONTAINER_SIZE * 8 < FSE_MAX_TABLELOG as usize * 2 + 7 { // 64bit 64 < 24 + 7, 32bit 32 < 24 + 7
-    //         bit_c.flush_bits_fast();
-    //     }
-
-    //     fse_encode_symbol(&mut bit_c, &mut state1, comp, input[index]);
-    //     index-=1;
-
-    //     if BIT_CONTAINER_SIZE * 8 > FSE_MAX_TABLELOG as usize * 4 + 7 { // 64bit 64 > 48 + 7, 32bit 32 > 48 + 7
-    //         fse_encode_symbol(&mut bit_c, &mut state2, comp, input[index]);
-    //         index-=1;
-    //         fse_encode_symbol(&mut bit_c, &mut state1, comp, input[index]);
-    //     }
-
-    //     bit_c.flush_bits_fast();
-    // }
-
     // these loops are correct for FSE_MAX_TABLELOG = 12
-
     #[cfg(target_pointer_width = "64")]
     {
         // 64 bit version
@@ -121,12 +93,19 @@ fn fse_encode_symbol(
     comp: &CompressionTable,
     symbol: u8,
 ) {
-    let symbol_tt = comp.symbol_tt[symbol as usize];
-    let nb_bits_out: u32 = ((c_state.value + symbol_tt.deltaNbBits as usize) >> 16) as u32;
-    bit_c.add_bits(c_state.value, nb_bits_out);
-    c_state.value = comp.state_table
-        [((c_state.value >> nb_bits_out) as isize + symbol_tt.deltaFindState as isize) as usize]
-        as usize;
+    unsafe {
+        // These unchecked access bring aroung 3-14% gain
+        let symbol_tt = comp.symbol_tt.get_unchecked(symbol as usize);
+        // let symbol_tt = comp.symbol_tt[symbol as usize];
+
+        let nb_bits_out: u32 = ((c_state.value + symbol_tt.deltaNbBits as usize) >> 16) as u32;
+        bit_c.add_bits(c_state.value, nb_bits_out);
+        let state_index =
+            ((c_state.value >> nb_bits_out) as isize + symbol_tt.deltaFindState as isize) as usize;
+
+        // c_state.value = comp.state_table [state_index] as usize;
+        c_state.value = *comp.state_table.get_unchecked(state_index) as usize;
+    }
 
     // println!("symbol {:?} nb_bits_out {:?} c_state.value {:?}", symbol, nb_bits_out, c_state.value);
 }

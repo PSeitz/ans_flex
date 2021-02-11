@@ -163,10 +163,12 @@ pub fn count_multi(input: &[u8]) -> CountsTable {
         counts1[*el as usize] += 1;
     }
 
-    let iter = counts1.iter_mut().zip(counts2.iter().zip(counts3.iter().zip(counts4.iter())));
+    let iter = counts1
+        .iter_mut()
+        .zip(counts2.iter().zip(counts3.iter().zip(counts4.iter())));
 
     for (el1, (el2, (el3, el4))) in iter {
-        *el1 += *el2 + *el3 + *el4 ;
+        *el1 += *el2 + *el3 + *el4;
     }
 
     // let iter = counts1.iter_mut().zip(counts2.iter_mut().zip(counts3.iter_mut().zip(counts4.iter_mut().zip(counts5.iter_mut().zip(counts6.iter_mut().zip(counts7.iter_mut().zip(counts8.iter_mut())))))));
@@ -189,8 +191,7 @@ pub fn count_blocked_unsafe(input: &[u8]) -> Vec<u32> {
     // let mut counts3 = [0_u32; 256];
     // let mut counts4 = [0_u32; 256];
 
-    unsafe{
-
+    unsafe {
         let mut in_ptr = input.as_ptr();
         let iend = input.as_ptr().add(input.len());
         let offset = input.as_ptr().align_offset(core::mem::align_of::<usize>());
@@ -234,14 +235,14 @@ pub fn count_blocked_unsafe(input: &[u8]) -> Vec<u32> {
             counts1[(val as usize)] += 1;
             in_ptr = in_ptr.add(1);
         }
-
     }
 
-
-    let iter = counts1.iter_mut().zip(counts2.iter().zip(counts3.iter().zip(counts4.iter())));
+    let iter = counts1
+        .iter_mut()
+        .zip(counts2.iter().zip(counts3.iter().zip(counts4.iter())));
 
     for (el1, (el2, (el3, el4))) in iter {
-        *el1 += *el2 + *el3 + *el4 ;
+        *el1 += *el2 + *el3 + *el4;
     }
 
     // let iter = counts1.iter_mut().zip(counts2.iter_mut().zip(counts3.iter_mut().zip(counts4.iter_mut().zip(counts5.iter_mut().zip(counts6.iter_mut().zip(counts7.iter_mut().zip(counts8.iter_mut())))))));
