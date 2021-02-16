@@ -242,7 +242,13 @@ pub fn build_compression_table(
     }
 }
 
-pub type DecompressionTable = Vec<FseDecode>;
+#[derive(Debug)]
+pub struct DecompressionTable {
+    pub table: Vec<FseDecode>,
+    pub fast: bool
+}
+
+// pub type DecompressionTable = Vec<FseDecode>;
 
 /// Build decoding table from normalized counters
 pub fn build_decompression_table(
@@ -251,10 +257,9 @@ pub fn build_decompression_table(
     max_symbol_value: u32,
 ) -> DecompressionTable {
     let mut next_symbol_table = vec![0_u16; max_symbol_value as usize + 1];
-    // let max_symbol_value_plus = max_symbol_value + 1;
     let table_size = 1 << table_log;
     let mut high_threshold = table_size - 1;
-    let mut table_decode = vec![FseDecode::default(); high_threshold];
+    let mut table_decode = vec![FseDecode::default(); table_size];
 
     assert!(max_symbol_value <= FSE_MAX_SYMBOL_VALUE);
     assert!(table_log <= FSE_MAX_TABLELOG);
@@ -310,15 +315,19 @@ pub fn build_decompression_table(
         let symbol = decode_state.symbol as usize;
         let next_state = next_symbol_table[symbol];
         next_symbol_table[symbol] += 1;
-        decode_state.nbBits = table_log as u8 - bit_highbit32(next_state as u32) as u8;
-        decode_state.newState = (next_state << decode_state.nbBits) - table_size as u16;
+        decode_state.nb_bits = table_log as u8 - bit_highbit32(next_state as u32) as u8;
+        decode_state.new_state = (next_state << decode_state.nb_bits) - table_size as u16;
     }
-    table_decode
+
+    DecompressionTable {
+        table: table_decode,
+        fast: fast_mode
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FseDecode {
-    pub newState: u16,
+    pub new_state: u16,
     pub symbol: u8,
-    pub nbBits: u8,
+    pub nb_bits: u8,
 }

@@ -3,6 +3,25 @@ use crate::bitstream::BIT_CONTAINER_SIZE;
 use crate::table::CompressionTable;
 use crate::FSE_MAX_TABLELOG;
 
+
+#[derive(Debug)]
+struct FseCState {
+    value: usize,
+}
+
+impl FseCState {
+    fn new(symbol: u8, comp: &CompressionTable) -> Self {
+        let symbol_tt = comp.symbol_tt[symbol as usize];
+        let nb_bits_out: u32 = ((symbol_tt.deltaNbBits as usize + (1 << 15)) >> 16) as u32;
+        let value: usize = ((nb_bits_out as usize) << 16) - symbol_tt.deltaNbBits as usize;
+        let value: usize = comp.state_table
+            [((value >> nb_bits_out) as isize + symbol_tt.deltaFindState as isize) as usize]
+            as usize;
+
+        FseCState { value }
+    }
+}
+
 // FSE buffer bounds
 pub const FSE_NCOUNTBOUND: usize = 512;
 
@@ -23,7 +42,7 @@ pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> Bi
 
     let mut bit_c = BitCstream::new(max_compressed_size);
 
-    let mut index = input.len();
+    let mut index = input.len() ;
 
     let (mut state1, mut state2) = if input.len() & 1 == 1 {
         index -= 1;
@@ -47,10 +66,10 @@ pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> Bi
         // test bit 2
         && (((input.len() - 2) & 2) == 2)
     {
-        index -= 1;
         fse_encode_symbol(&mut bit_c, &mut state2, comp, input[index]);
         index -= 1;
         fse_encode_symbol(&mut bit_c, &mut state1, comp, input[index]);
+        index -= 1;
         bit_c.flush_bits_fast();
     }
 
@@ -59,10 +78,10 @@ pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> Bi
     {
         // 64 bit version
         for chunk in input[..index].rchunks_exact(4) {
-            fse_encode_symbol(&mut bit_c, &mut state2, comp, chunk[0]);
-            fse_encode_symbol(&mut bit_c, &mut state1, comp, chunk[1]);
-            fse_encode_symbol(&mut bit_c, &mut state2, comp, chunk[2]);
-            fse_encode_symbol(&mut bit_c, &mut state1, comp, chunk[3]);
+            fse_encode_symbol(&mut bit_c, &mut state2, comp, chunk[3]);
+            fse_encode_symbol(&mut bit_c, &mut state1, comp, chunk[2]);
+            fse_encode_symbol(&mut bit_c, &mut state2, comp, chunk[1]);
+            fse_encode_symbol(&mut bit_c, &mut state1, comp, chunk[0]);
             bit_c.flush_bits_fast();
         }
     }
@@ -71,9 +90,9 @@ pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> Bi
     {
         // 32 bit version
         for chunk in input[..index].rchunks_exact(2) {
-            fse_encode_symbol(&mut bit_c, &mut state2, comp, chunk[0]);
+            fse_encode_symbol(&mut bit_c, &mut state2, comp, chunk[1]);
             bit_c.flush_bits_fast();
-            fse_encode_symbol(&mut bit_c, &mut state1, comp, chunk[1]);
+            fse_encode_symbol(&mut bit_c, &mut state1, comp, chunk[0]);
             bit_c.flush_bits_fast();
         }
     }
@@ -113,22 +132,5 @@ fn fse_encode_symbol(
 #[inline]
 fn fse_flush_cstate(bit_c: &mut BitCstream, c_state: &mut FseCState, table_log: u32) {
     bit_c.add_bits(c_state.value, table_log);
-}
-
-#[derive(Debug)]
-struct FseCState {
-    value: usize,
-}
-
-impl FseCState {
-    fn new(symbol: u8, comp: &CompressionTable) -> Self {
-        let symbol_tt = comp.symbol_tt[symbol as usize];
-        let nb_bits_out: u32 = ((symbol_tt.deltaNbBits as usize + (1 << 15)) >> 16) as u32;
-        let value: usize = ((nb_bits_out as usize) << 16) - symbol_tt.deltaNbBits as usize;
-        let value: usize = comp.state_table
-            [((value >> nb_bits_out) as isize + symbol_tt.deltaFindState as isize) as usize]
-            as usize;
-
-        FseCState { value }
-    }
+    bit_c.flush_bits_fast();
 }

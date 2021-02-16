@@ -16,6 +16,9 @@ foundation in math and compression it will be difficult to follow.
 
 */
 
+use crate::decompress::fse_decompress;
+use crate::table::build_decompression_table;
+use crate::hist::NormCountsTable;
 use crate::bitstream::bit_highbit32;
 use crate::bitstream::BitCstream;
 use crate::compress::fse_compress;
@@ -94,6 +97,21 @@ pub fn compress(input: &[u8]) -> BitCstream {
     let comp_tables = build_compression_table(&norm_counts, table_log, max_symbol_value);
 
     let out = fse_compress(&input, &comp_tables, table_log);
+    out
+}
+
+
+pub fn decompress(compressed: &[u8], norm_counts: &NormCountsTable, table_log: u32, orig_size: usize, max_symbol_value: u32) -> Vec<u8> {
+    let mut output = vec![0_u8, 0];
+    output.resize(orig_size, 0);
+
+    let decomp_table = build_decompression_table(
+        norm_counts,
+        table_log,
+        max_symbol_value,
+    );
+
+    let out = fse_decompress(&mut output,&compressed, &decomp_table, table_log);
     out
 }
 
@@ -289,9 +307,11 @@ mod tests {
     }
 
     #[test]
-    fn test_compress() {
+    fn test_compress_1() {
         setup();
         let test_data = get_test_data();
+        // use std::io::Write;
+        // std::fs::File::create("test_data_100").unwrap().write_all(&test_data).unwrap();
         let counts = count_simple(&test_data);
         assert_eq!(counts[A_BYTE as usize], 45);
         assert_eq!(counts[B_BYTE as usize], 35);
@@ -302,12 +322,36 @@ mod tests {
         dbg!(out.bit_pos);
         dbg!(out.bit_container);
 
+        for el in out.get_compressed_data() {
+            dbg!(el);
+        }
+
         // for index in 0..100 {
         //     println!("{:?} {:?}", index, test_data[index]);
         // }
     }
     #[test]
-    fn test_compress_json() {
+    fn test_roundtrip() {
+        setup();
+        let test_data = get_test_data();
+        let counts = count_simple(&test_data);
+        let out = compress(&test_data);
+        dbg!(out.get_compressed_data());
+        // let dst = out.get_compressed_data();
+        // for el in out.get_compressed_data() {
+        //     dbg!(el);
+        // }
+
+        let max_symbol_value = get_max_symbol_value(&counts);
+        let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, test_data.len(), max_symbol_value);
+        let norm_counts = get_normalized_counts(&counts, table_log, test_data.len(), max_symbol_value);
+        // compressed: &[u8], norm_counts: &NormCountsTable, table_log: u32, orig_size: usize, max_symbol_value: u32
+
+        dbg!("out.get_compressed_data().len() {:?}", out.get_compressed_data().len());
+        decompress(&out.get_compressed_data(), &norm_counts, table_log, test_data.len(), max_symbol_value);
+    }
+    #[test]
+    fn test_compress_2_json() {
         setup();
         const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_66k_JSON.txt");
         let out = compress(&TEST_DATA);
