@@ -36,6 +36,7 @@ pub fn get_normalized_counts(
     let total = src_size as u64;
     // Variable length arrays are not yet supported in Rust, [0_i16;max_symbol_value] would be enough for the counts;
     // https://doc.rust-lang.org/beta/unstable-book/language-features/unsized-locals.html
+    // This should also remove bounds checks for the loop below.
     let mut norm_counts = [0_i16; 256];
 
     /// rest to beat table
@@ -84,7 +85,7 @@ pub fn get_normalized_counts(
 
     debug!("still_to_distribute: {}", still_to_distribute);
     if -still_to_distribute >= (norm_counts[largest as usize] as i32 >> 1) {
-        unimplemented!()
+        panic!("count normalization corner case not yet implemented");
         /* corner case, need another normalization method */
         // size_t const errorCode = FSE_normalizeM2(norm_counts, tableLog, count, total, maxSymbolValue);
         // if (FSE_isError(errorCode)) return errorCode;

@@ -281,6 +281,7 @@ pub fn build_decompression_table(
         }
     }
 
+
     // spread symbols - TODO basically the same as in compression
     {
         let table_mask = table_size - 1;
@@ -311,14 +312,17 @@ pub fn build_decompression_table(
     }
 
     for u in 0..table_size {
-        let mut decode_state = table_decode[u];
+        let decode_state = &mut table_decode[u];
         let symbol = decode_state.symbol as usize;
         let next_state = next_symbol_table[symbol];
+
+        // state used, increment state
         next_symbol_table[symbol] += 1;
         decode_state.nb_bits = table_log as u8 - bit_highbit32(next_state as u32) as u8;
         decode_state.new_state = (next_state << decode_state.nb_bits) - table_size as u16;
     }
 
+    
     DecompressionTable {
         table: table_decode,
         fast: fast_mode

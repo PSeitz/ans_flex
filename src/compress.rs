@@ -1,5 +1,6 @@
+use crate::bitstream::NUM_BITS_IN_BIT_CONTAINER;
 use crate::bitstream::BitCstream;
-use crate::bitstream::BIT_CONTAINER_SIZE;
+use crate::bitstream::BIT_CONTAINER_BYTES;
 use crate::table::CompressionTable;
 use crate::FSE_MAX_TABLELOG;
 
@@ -18,16 +19,20 @@ impl FseCState {
             [((value >> nb_bits_out) as isize + symbol_tt.deltaFindState as isize) as usize]
             as usize;
 
+        // println!("NEW symbol {:?} nb_bits_out {:?} c_state.value {:?}", symbol, nb_bits_out, value);
+
         FseCState { value }
     }
 }
 
 // FSE buffer bounds
+
+/// Maximum size to store counts
 pub const FSE_NCOUNTBOUND: usize = 512;
 
 #[inline]
 fn fse_blockbound(size: usize) -> usize {
-    size + (size>>7) + 4 /* fse states */ + BIT_CONTAINER_SIZE
+    size + (size>>7) + 4 /* fse states */ + BIT_CONTAINER_BYTES
 }
 
 #[inline]
@@ -62,16 +67,17 @@ pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> Bi
     };
 
     // join to mod 4
-    if (BIT_CONTAINER_SIZE * 8 > FSE_MAX_TABLELOG as usize * 4 + 7)
+    if NUM_BITS_IN_BIT_CONTAINER > FSE_MAX_TABLELOG * 4 + 7
         // test bit 2
-        && (((input.len() - 2) & 2) == 2)
+        && ((input.len() - 2) & 2) == 2
     {
+        index -= 1;
         fse_encode_symbol(&mut bit_c, &mut state2, comp, input[index]);
         index -= 1;
         fse_encode_symbol(&mut bit_c, &mut state1, comp, input[index]);
-        index -= 1;
         bit_c.flush_bits_fast();
     }
+    // println!("START LOOP");
 
     // these loops are correct for FSE_MAX_TABLELOG = 12
     #[cfg(target_pointer_width = "64")]
@@ -124,9 +130,9 @@ fn fse_encode_symbol(
 
         // c_state.value = comp.state_table [state_index] as usize;
         c_state.value = *comp.state_table.get_unchecked(state_index) as usize;
+        // println!("symbol {:?} nb_bits_out {:?} c_state.value {:?}", symbol, nb_bits_out, c_state.value);
     }
 
-    // println!("symbol {:?} nb_bits_out {:?} c_state.value {:?}", symbol, nb_bits_out, c_state.value);
 }
 
 #[inline]

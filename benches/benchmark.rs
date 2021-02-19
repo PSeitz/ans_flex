@@ -1,10 +1,13 @@
 extern crate criterion;
 
+use ans_flex::hist::get_max_symbol_value;
+use ans_flex::table::fse_optimal_table_log;
+use ans_flex::FSE_DEFAULT_TABLELOG;
+use ans_flex::hist::get_normalized_counts;
+use ans_flex::decompress;
 use self::criterion::*;
 use ans_flex::compress;
 use ans_flex::count_simple;
-use ans_flex::hist::count_blocked_unsafe;
-use ans_flex::hist::count_multi;
 
 const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");
 const COMPRESSION34K: &'static [u8] = include_bytes!("compression_34k.txt");
@@ -65,6 +68,42 @@ fn compression(c: &mut Criterion) {
     group.finish();
 }
 
+fn decompression(c: &mut Criterion) {
+    let mut group = c.benchmark_group("decompression");
+    for input in ALL.iter() {
+        let out = compress(input);
+        let input_bytes = input.len() as u64;
+        group.throughput(Throughput::Bytes(input_bytes));
+        group.bench_with_input(
+            BenchmarkId::new("decompression_ans_complete", input_bytes),
+            &out.get_compressed_data(),
+            |b, i| {
+                b.iter(|| {
+                    let counts = count_simple(&input);
+                    let max_symbol_value = get_max_symbol_value(&counts);
+                    let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
+                    let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
+                    decompress(&i, &norm_counts, table_log, input.len(), max_symbol_value)
+                });
+            },
+        );
+        let counts = count_simple(&input);
+        let max_symbol_value = get_max_symbol_value(&counts);
+        let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
+        let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
+        group.bench_with_input(
+            BenchmarkId::new("decompression_ans_reuse", input_bytes),
+            &out.get_compressed_data(),
+            |b, i| {
+                b.iter(|| decompress(&i, &norm_counts, table_log, input.len(), max_symbol_value));
+            },
+        );
+    }
+    group.finish();
+}
+
+
+
 // criterion_group!(benches, count, compression);
-criterion_group!(benches, compression);
+criterion_group!(benches, compression, decompression);
 criterion_main!(benches);

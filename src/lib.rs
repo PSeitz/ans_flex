@@ -16,7 +16,8 @@ foundation in math and compression it will be difficult to follow.
 
 */
 
-use crate::decompress::fse_decompress;
+use crate::table::DecompressionTable;
+use crate::decompress::fse_decompress as other_fse_decompress;
 use crate::table::build_decompression_table;
 use crate::hist::NormCountsTable;
 use crate::bitstream::bit_highbit32;
@@ -111,8 +112,12 @@ pub fn decompress(compressed: &[u8], norm_counts: &NormCountsTable, table_log: u
         max_symbol_value,
     );
 
-    let out = fse_decompress(&mut output,&compressed, &decomp_table, table_log);
-    out
+    fse_decompress(&mut output,&compressed, &decomp_table, table_log);
+    output
+}
+
+pub fn fse_decompress(output: &mut Vec<u8>, input: &[u8], table: &DecompressionTable, table_log: u32) {
+    other_fse_decompress(output, &input, &table, table_log)
 }
 
 // fn get_column_heights(counts: &CountsTable) -> Vec<u32> {
@@ -287,6 +292,24 @@ mod tests {
     const B_BYTE: u8 = "b".as_bytes()[0];
     const C_BYTE: u8 = "c".as_bytes()[0];
 
+    // fn get_test_data() -> Vec<u8> {
+    //     use std::io::Read;
+    //     let mut buffer = Vec::new();
+    //     std::io::repeat(A_BYTE)
+    //         .take(45)
+    //         .read_to_end(&mut buffer)
+    //         .unwrap(); // 45% prob
+    //     std::io::repeat(B_BYTE)
+    //         .take(35)
+    //         .read_to_end(&mut buffer)
+    //         .unwrap(); // 35% prob
+    //     std::io::repeat(C_BYTE)
+    //         .take(20)
+    //         .read_to_end(&mut buffer)
+    //         .unwrap(); // 20% prob
+
+    //     buffer
+    // }
     fn get_test_data() -> Vec<u8> {
         use std::io::Read;
         let mut buffer = Vec::new();
@@ -306,12 +329,30 @@ mod tests {
         buffer
     }
 
+
+    fn get_test_data_flexible(size: usize) -> Vec<u8> {
+        use std::io::Read;
+        let mut buffer = Vec::new();
+        std::io::repeat(A_BYTE)
+            .take((size as f32 * 0.45) as u64)
+            .read_to_end(&mut buffer)
+            .unwrap(); // 45% prob
+        std::io::repeat(B_BYTE)
+            .take((size as f32 * 0.35) as u64)
+            .read_to_end(&mut buffer)
+            .unwrap(); // 35% prob
+        std::io::repeat(C_BYTE)
+            .take((size as f32 * 0.20) as u64)
+            .read_to_end(&mut buffer)
+            .unwrap(); // 20% prob
+
+        buffer
+    }
+
     #[test]
     fn test_compress_1() {
         setup();
         let test_data = get_test_data();
-        // use std::io::Write;
-        // std::fs::File::create("test_data_100").unwrap().write_all(&test_data).unwrap();
         let counts = count_simple(&test_data);
         assert_eq!(counts[A_BYTE as usize], 45);
         assert_eq!(counts[B_BYTE as usize], 35);
@@ -321,46 +362,83 @@ mod tests {
         dbg!(out.data_pos);
         dbg!(out.bit_pos);
         dbg!(out.bit_container);
-
-        for el in out.get_compressed_data() {
-            dbg!(el);
-        }
-
-        // for index in 0..100 {
-        //     println!("{:?} {:?}", index, test_data[index]);
-        // }
     }
+
     #[test]
     fn test_roundtrip() {
         setup();
         let test_data = get_test_data();
-        let counts = count_simple(&test_data);
-        let out = compress(&test_data);
-        dbg!(out.get_compressed_data());
-        // let dst = out.get_compressed_data();
-        // for el in out.get_compressed_data() {
-        //     dbg!(el);
-        // }
+        inverse(&test_data);
+    }
 
+    #[test]
+    fn test_roundtrip_multi_sizes() {
+        setup();
+
+        for num_elems in 15..1000 {
+            // println!("{:?}", num_elems);
+            // let test_data = get_test_data_flexible(num_elems);
+            let test_data = get_test_data_flexible(num_elems);
+
+            // use std::io::Write;
+            // std::fs::File::create("../FiniteStateEntropy/programs/test_data_100").unwrap().write_all(&test_data).unwrap();
+
+            inverse(&test_data);
+        }
+    }
+
+    #[test]
+    fn test_66k_json() {
+        setup();
+        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_66k_JSON.txt");
+        inverse(TEST_DATA);
+    }
+    #[test]
+    fn test_65k_text() {
+        setup();
+        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_65k.txt");
+        inverse(TEST_DATA);
+    }
+    #[test]
+    fn test_34k_text() {
+        setup();
+        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_34k.txt");
+        inverse(TEST_DATA);
+    }
+    #[test]
+    fn test_1k_text() {
+        setup();
+        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_1k.txt");
+        inverse(TEST_DATA);
+    }
+    
+    fn inverse(test_data: &[u8]) {
+        setup();
+        let out = compress(&test_data);
+        // dbg!(&out.get_compressed_data().len());
+        // dbg!(out.bit_pos);
+        // dbg!(out.bit_container);
+
+        let counts = count_simple(&test_data);
         let max_symbol_value = get_max_symbol_value(&counts);
         let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, test_data.len(), max_symbol_value);
         let norm_counts = get_normalized_counts(&counts, table_log, test_data.len(), max_symbol_value);
-        // compressed: &[u8], norm_counts: &NormCountsTable, table_log: u32, orig_size: usize, max_symbol_value: u32
 
-        dbg!("out.get_compressed_data().len() {:?}", out.get_compressed_data().len());
-        decompress(&out.get_compressed_data(), &norm_counts, table_log, test_data.len(), max_symbol_value);
-    }
-    #[test]
-    fn test_compress_2_json() {
-        setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_66k_JSON.txt");
-        let out = compress(&TEST_DATA);
-        dbg!(out.data_pos);
-        dbg!(out.bit_pos);
-        dbg!(out.bit_container);
-
-        // for index in 0..100 {
-        //     println!("{:?} {:?}", index, test_data[index]);
-        // }
+        let decompressed = decompress(&out.get_compressed_data(), &norm_counts, table_log, test_data.len(), max_symbol_value);
+        assert_eq!(decompressed, test_data);
     }
 }
+
+// const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");
+// const COMPRESSION34K: &'static [u8] = include_bytes!("compression_34k.txt");
+// const COMPRESSION65K: &'static [u8] = include_bytes!("compression_65k.txt");
+// const COMPRESSION66K: &'static [u8] = include_bytes!("compression_66k_JSON.txt");
+// // const COMPRESSION95K_VERY_GOOD_LOGO: &'static [u8] = include_bytes!("logo.jpg");
+
+// const ALL: &[&[u8]] = &[
+//     COMPRESSION1K as &[u8],
+//     COMPRESSION34K as &[u8],
+//     COMPRESSION65K as &[u8],
+//     COMPRESSION66K as &[u8],
+//     // COMPRESSION95K_VERY_GOOD_LOGO as &[u8],
+// ];
