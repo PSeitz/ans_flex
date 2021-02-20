@@ -292,24 +292,6 @@ mod tests {
     const B_BYTE: u8 = "b".as_bytes()[0];
     const C_BYTE: u8 = "c".as_bytes()[0];
 
-    // fn get_test_data() -> Vec<u8> {
-    //     use std::io::Read;
-    //     let mut buffer = Vec::new();
-    //     std::io::repeat(A_BYTE)
-    //         .take(45)
-    //         .read_to_end(&mut buffer)
-    //         .unwrap(); // 45% prob
-    //     std::io::repeat(B_BYTE)
-    //         .take(35)
-    //         .read_to_end(&mut buffer)
-    //         .unwrap(); // 35% prob
-    //     std::io::repeat(C_BYTE)
-    //         .take(20)
-    //         .read_to_end(&mut buffer)
-    //         .unwrap(); // 20% prob
-
-    //     buffer
-    // }
     fn get_test_data() -> Vec<u8> {
         use std::io::Read;
         let mut buffer = Vec::new();
@@ -409,6 +391,19 @@ mod tests {
     fn test_1k_text() {
         setup();
         const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_1k.txt");
+        inverse(TEST_DATA);
+    }
+    
+    #[test]
+    fn test_v4_uuids_19_k() {
+        setup();
+        const TEST_DATA: &'static [u8] = include_bytes!("../benches/v4_uuids_19k.txt");
+        inverse(TEST_DATA);
+    }
+    #[test]
+    fn test_v4_uuids_93_k() {
+        setup();
+        const TEST_DATA: &'static [u8] = include_bytes!("../benches/v4_uuids_93k.txt");
         inverse(TEST_DATA);
     }
     

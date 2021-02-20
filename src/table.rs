@@ -12,8 +12,8 @@ pub struct CompressionTable {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct FseSymbolCompressionTransform {
-    pub deltaFindState: i32,
-    pub deltaNbBits: u32,
+    pub delta_find_state: i32,
+    pub delta_nb_bits: u32,
 }
 
 impl FseSymbolCompressionTransform {
@@ -23,7 +23,7 @@ impl FseSymbolCompressionTransform {
     /// note 1 : assume symbolValue is valid (<= maxSymbolValue)
     /// note 2 : if freq[symbolValue]==0, @return a fake cost of tableLog+1 bits */
     pub fn fse_get_max_nb_bits(&self) -> u32 {
-        self.deltaNbBits + ((1 << 16) - 1) >> 16
+        self.delta_nb_bits + ((1 << 16) - 1) >> 16
     }
 
     /// Approximate symbol cost, as fractional value, using fixed-point format (accuracy_log fractional bits)
@@ -31,18 +31,18 @@ impl FseSymbolCompressionTransform {
     /// note 1 : assume symbolValue is valid (<= maxSymbolValue)
     /// note 2 : if freq[symbolValue]==0, @return a fake cost of tableLog+1 bits */
     pub fn fse_bit_cost(&self, table_log: u32, accuracy_log: u32) -> u32 {
-        let min_nb_bits: u32 = self.deltaNbBits >> 16;
+        let min_nb_bits: u32 = self.delta_nb_bits >> 16;
         let threshold: u32 = (min_nb_bits + 1) << 16;
 
         assert!(table_log < 16);
         assert!(accuracy_log < 31 - table_log);
         let table_size = 1 << table_log;
 
-        let delta_from_threshold: u32 = threshold - (self.deltaNbBits + table_size);
+        let delta_from_threshold: u32 = threshold - (self.delta_nb_bits + table_size);
         let normalized_delta_from_threshold: u32 =
             (delta_from_threshold << accuracy_log) >> table_log; /* linear interpolation (very approximate) */
         let bit_multiplier: u32 = 1 << accuracy_log;
-        assert!(self.deltaNbBits + table_size <= threshold);
+        assert!(self.delta_nb_bits + table_size <= threshold);
         assert!(normalized_delta_from_threshold <= bit_multiplier);
         return (min_nb_bits + 1) * bit_multiplier - normalized_delta_from_threshold;
     }
@@ -190,27 +190,27 @@ pub fn build_compression_table(
                 0 => {
                     if log_enabled!(Debug) {
                         // For compatibility with fse_get_max_nb_bits()
-                        symbol_tt[symbol as usize].deltaNbBits =
+                        symbol_tt[symbol as usize].delta_nb_bits =
                             ((table_log + 1) << 16) - (1 << table_log)
                     }
                 }
                 -1 | 1 => {
-                    symbol_tt[symbol].deltaNbBits = (table_log << 16) - (1 << table_log);
-                    symbol_tt[symbol].deltaFindState = total - 1;
+                    symbol_tt[symbol].delta_nb_bits = (table_log << 16) - (1 << table_log);
+                    symbol_tt[symbol].delta_find_state = total - 1;
                     total += 1;
                 }
                 _ => {
                     let max_bits_out: u32 =
                         table_log - bit_highbit32(norm_counts[symbol] as u32 - 1);
                     let min_state_plus: u32 = (norm_counts[symbol] as u32) << max_bits_out;
-                    symbol_tt[symbol].deltaNbBits = (max_bits_out << 16) - min_state_plus;
-                    symbol_tt[symbol].deltaFindState = total - norm_counts[symbol] as i32;
+                    symbol_tt[symbol].delta_nb_bits = (max_bits_out << 16) - min_state_plus;
+                    symbol_tt[symbol].delta_find_state = total - norm_counts[symbol] as i32;
                     total += norm_counts[symbol] as i32;
                     // trace!(
-                    //     "symbol_tt[{:?}] deltaNbBits {:?} deltaFindState {:?}",
+                    //     "symbol_tt[{:?}] delta_nb_bits {:?} delta_find_state {:?}",
                     //     symbol,
-                    //     symbol_tt[symbol].deltaNbBits,
-                    //     symbol_tt[symbol].deltaFindState
+                    //     symbol_tt[symbol].delta_nb_bits,
+                    //     symbol_tt[symbol].delta_find_state
                     // );
                 }
             }
@@ -225,11 +225,11 @@ pub fn build_compression_table(
             }
             let s_tt = symbol_tt[symbol];
             debug!(
-                "symbol:{:?} w:{:?} deltaNbBits:{:?} deltaFindState:{:?} maxBits:{:?} fracBits:{:?} ",
+                "symbol:{:?} w:{:?} delta_nb_bits:{:?} delta_find_state:{:?} maxBits:{:?} fracBits:{:?} ",
                 symbol,
                 weight,
-                s_tt.deltaNbBits,
-                s_tt.deltaFindState,
+                s_tt.delta_nb_bits,
+                s_tt.delta_find_state,
                 s_tt.fse_get_max_nb_bits(),
                 s_tt.fse_bit_cost(table_log, 8) as f32 / 256.0
             );

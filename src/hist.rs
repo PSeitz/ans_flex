@@ -44,7 +44,7 @@ pub fn get_normalized_counts(
 
     let scale: u64 = 62 - table_log as u64;
 
-    let step: u64 = (1 << 62) / total; // <== here, one division ! .. okay
+    let step: u64 = (1 << 62) / total;
     let v_step: u64 = 1 << (scale - 20);
 
     // keeps track of the sum of occurences of symbols to match 1 << table_log

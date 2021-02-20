@@ -13,10 +13,10 @@ struct FseCState {
 impl FseCState {
     fn new(symbol: u8, comp: &CompressionTable) -> Self {
         let symbol_tt = comp.symbol_tt[symbol as usize];
-        let nb_bits_out: u32 = ((symbol_tt.deltaNbBits as usize + (1 << 15)) >> 16) as u32;
-        let value: usize = ((nb_bits_out as usize) << 16) - symbol_tt.deltaNbBits as usize;
+        let nb_bits_out: u32 = ((symbol_tt.delta_nb_bits as usize + (1 << 15)) >> 16) as u32;
+        let value: usize = ((nb_bits_out as usize) << 16) - symbol_tt.delta_nb_bits as usize;
         let value: usize = comp.state_table
-            [((value >> nb_bits_out) as isize + symbol_tt.deltaFindState as isize) as usize]
+            [((value >> nb_bits_out) as isize + symbol_tt.delta_find_state as isize) as usize]
             as usize;
 
         // println!("NEW symbol {:?} nb_bits_out {:?} c_state.value {:?}", symbol, nb_bits_out, value);
@@ -108,6 +108,7 @@ pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> Bi
 
     bit_c.finish_stream();
 
+
     bit_c
 }
 
@@ -123,10 +124,10 @@ fn fse_encode_symbol(
         let symbol_tt = comp.symbol_tt.get_unchecked(symbol as usize);
         // let symbol_tt = comp.symbol_tt[symbol as usize];
 
-        let nb_bits_out: u32 = ((c_state.value + symbol_tt.deltaNbBits as usize) >> 16) as u32;
+        let nb_bits_out: u32 = ((c_state.value + symbol_tt.delta_nb_bits as usize) >> 16) as u32;
         bit_c.add_bits(c_state.value, nb_bits_out);
         let state_index =
-            ((c_state.value >> nb_bits_out) as isize + symbol_tt.deltaFindState as isize) as usize;
+            ((c_state.value >> nb_bits_out) as isize + symbol_tt.delta_find_state as isize) as usize;
 
         // c_state.value = comp.state_table [state_index] as usize;
         c_state.value = *comp.state_table.get_unchecked(state_index) as usize;

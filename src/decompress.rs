@@ -29,11 +29,13 @@ pub fn fse_decompress(output: &mut Vec<u8>, input: &[u8], table: &DecompressionT
     let mut state2 = FseDState::new(&mut bit_stream, table_log, input);
 
     // 64bit version
-    let out_len = output.len();
-    let mut iter = output[..out_len.saturating_sub(80)].chunks_exact_mut(4);
+    // let out_len = output.len();
+    // let mut iter = output[..out_len.saturating_sub(80)].chunks_exact_mut(4);
+    let mut iter = output.chunks_exact_mut(4);
     let mut consumed = 0;
     for out_chunk in &mut iter {
-        let status = bit_stream.reload_stream_fast(input);
+        let status = bit_stream.reload_stream(input);
+        // let status = bit_stream.reload_stream_fast(input);
         if  status != BitDstreamStatus::Unfinished  {
             // panic!("consumed {:?} unconsumed {:?}", consumed, output.len() - consumed);
             break;
