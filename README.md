@@ -15,7 +15,7 @@ and [Yann Collet](https://fastcompression.blogspot.com/2013/12/finite-state-entr
 The [ANS paper](https://arxiv.org/pdf/1311.2540.pdf) from Jarek Duda is also interesting, but without a solid
 foundation in math and compression it will be difficult to follow.
 
-Note, that entropy compression like ans is usually not purely used own its own, but in conjuncation with other compression techniques like Lempel-Ziv.
+Note, that entropy compression like ans is usually not purely used own its own, but in conjunction with other compression techniques like Lempel-Ziv.
 
 # Performance
 
