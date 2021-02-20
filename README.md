@@ -19,7 +19,7 @@ Note, that entropy compression like ans is usually not purely used own its own, 
 
 # Performance
 
-Performance seems to be slightly faster than https://github.com/Cyan4973/FiniteStateEntropy/, which is used a close variant in zstd.
+Performance seems to be slightly faster than https://github.com/Cyan4973/FiniteStateEntropy/, which uses a close variant of its fse in zstd.
 
 `cargo bench`
 
