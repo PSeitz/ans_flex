@@ -13,6 +13,8 @@ const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");
 const COMPRESSION34K: &'static [u8] = include_bytes!("compression_34k.txt");
 const COMPRESSION65K: &'static [u8] = include_bytes!("compression_65k.txt");
 const COMPRESSION66K: &'static [u8] = include_bytes!("compression_66k_JSON.txt");
+const COMPRESSION19K: &'static [u8] = include_bytes!("v4_uuids_19k.txt");
+const COMPRESSION93K: &'static [u8] = include_bytes!("v4_uuids_93k.txt");
 // const COMPRESSION95K_VERY_GOOD_LOGO: &'static [u8] = include_bytes!("logo.jpg");
 
 const ALL: &[&[u8]] = &[
@@ -20,6 +22,8 @@ const ALL: &[&[u8]] = &[
     COMPRESSION34K as &[u8],
     COMPRESSION65K as &[u8],
     COMPRESSION66K as &[u8],
+    COMPRESSION19K as &[u8],
+    COMPRESSION93K as &[u8],
     // COMPRESSION95K_VERY_GOOD_LOGO as &[u8],
 ];
 
@@ -58,7 +62,7 @@ fn compression(c: &mut Criterion) {
         let input_bytes = input.len() as u64;
         group.throughput(Throughput::Bytes(input_bytes));
         group.bench_with_input(
-            BenchmarkId::new("compression_ans", input_bytes),
+            BenchmarkId::new("ans_flex", input_bytes),
             &input,
             |b, i| {
                 b.iter(|| compress(i));
@@ -75,7 +79,7 @@ fn decompression(c: &mut Criterion) {
         let input_bytes = input.len() as u64;
         group.throughput(Throughput::Bytes(input_bytes));
         group.bench_with_input(
-            BenchmarkId::new("decompression_ans_complete", input_bytes),
+            BenchmarkId::new("ans_flex_complete", input_bytes),
             &out.get_compressed_data(),
             |b, i| {
                 b.iter(|| {
@@ -92,7 +96,7 @@ fn decompression(c: &mut Criterion) {
         let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
         let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
         group.bench_with_input(
-            BenchmarkId::new("decompression_ans_reuse", input_bytes),
+            BenchmarkId::new("ans_flex_reuse", input_bytes),
             &out.get_compressed_data(),
             |b, i| {
                 b.iter(|| decompress(&i, &norm_counts, table_log, input.len(), max_symbol_value));
