@@ -14,6 +14,7 @@ pub fn minimum_tree_depth(num_symbols: usize) -> usize {
     min_depth.max(1)
 }
 
+
 #[test]
 fn test_minimum_depth() {
     assert_eq!(minimum_tree_depth(0), 1);
@@ -26,4 +27,20 @@ fn test_minimum_depth() {
     assert_eq!(minimum_tree_depth(7), 3);
     assert_eq!(minimum_tree_depth(8), 3);
     assert_eq!(minimum_tree_depth(9), 4);
+}
+
+
+/// we can calculate the maximum numer of nodes of a huffman tree for a depth.
+/// The maimum number of nodes are in a perfectly balanced tree. 2^n for each depth
+#[inline]
+pub fn maximum_number_of_nodes(depth: u32) -> usize {
+    (0..=depth).map(|d|2_usize.pow(d)).sum()
+}
+
+#[test]
+fn test_maximum_number_of_nodes() {
+    assert_eq!(maximum_number_of_nodes(0), 1);
+    assert_eq!(maximum_number_of_nodes(1), 3);
+    assert_eq!(maximum_number_of_nodes(2), 3 + 4);
+    assert_eq!(maximum_number_of_nodes(3), 7 + 8);
 }

@@ -29,6 +29,8 @@ impl Tree {
     pub fn get_root_node(&self) -> &Node {
         &self.nodes[self.root_node]
     }
+
+    /// returns all nodes in the tree containing a symbol, excluding intermediate parent nodes
     pub fn get_symbol_nodes(&self) -> &[Node] {
         &self.nodes[..=self.last_symbol_node_pos as usize]
     }

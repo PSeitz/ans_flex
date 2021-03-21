@@ -17,7 +17,7 @@ pub fn build_tree_fast(counts: &[usize; 256]) -> Tree {
     tree
 }
 
-/// creates a huffman tree and limits its height to 11mbol
+/// creates a huffman tree
 #[inline]
 pub fn build_tree_fast_1(counts: &[usize; 256]) -> Tree {
     let mut nodes = [Node::default(); 512];
@@ -266,9 +266,9 @@ impl RangeExlusive {
     }
 }
 
-/// Will build an index with start end position of each depth level of the tree
-/// max tree height supported is 16, so it should be normalized by set_max_height before
-/// nodes must be sorted by number_bits (depth) DESC
+/// Will build an index with start end position of each depth level of the tree.
+/// max tree height supported is 16, so it should be normalized by set_max_height before.
+/// Nodes must be sorted by number_bits (depth) DESC, which is the case for `build_tree_fast_1`.
 #[inline]
 fn get_depth_index(nodes: &[Node]) -> DepthIndex {
     let mut depth_index = [RangeExlusive::default(); 16];
@@ -307,6 +307,8 @@ pub fn decrement_return_old(val: &mut usize) -> usize {
     *val + 1
 }
 
+/// will validate the table to have generated correct prefix properties for all symbols.
+/// This validation is rather slow and should be used in a regular compression execution.
 pub fn test_prefix_property(table: &[MinNode; 256])  {
     let mut node_by_num_bits: Vec<Vec<MinNode>> = vec![];
     node_by_num_bits.resize(16, vec![]);
@@ -334,35 +336,6 @@ pub fn test_prefix_property(table: &[MinNode; 256])  {
 mod tests {
     use super::*;
     use crate::count_simple;
-
-    // fn get_test_nodes_depth_3() -> [Node; 512] {
-    //     let mut nodes = [Node::default(); 512];
-    //     nodes[0] = Node {
-    //         symbol: Some(93),
-    //         count: 9,
-    //         number_bits: 3,
-    //         ..Default::default()
-    //     };
-    //     nodes[1] = Node {
-    //         symbol: Some(92),
-    //         count: 10,
-    //         number_bits: 3,
-    //         ..Default::default()
-    //     };
-    //     nodes[2] = Node {
-    //         symbol: Some(91),
-    //         count: 50,
-    //         number_bits: 2,
-    //         ..Default::default()
-    //     };
-    //     nodes[3] = Node {
-    //         symbol: Some(90),
-    //         count: 100,
-    //         number_bits: 1,
-    //         ..Default::default()
-    //     };
-    //     nodes
-    // }
 
     fn get_test_nodes_depth_5() -> [Node; 512] {
         let mut nodes = [Node::default(); 512];
