@@ -49,6 +49,8 @@ pub fn build_tree_fast_1(counts: &[usize; 256]) -> Tree {
 
     // walking upwards until all symbols have a parent
     while pos <= last_symbol_node_pos as usize {
+
+        // get the next to lowest nodes and build a parent
         let node1_pos = {
             // TODO: Check what is better nodes[pos].count < nodes[parent_check_pos].count or  nodes[pos].count <= nodes[parent_check_pos].count
             if nodes[pos].count < nodes[parent_check_pos].count
@@ -475,12 +477,6 @@ mod tests {
             1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
         ];
 
-        use std::io::Write;
-        std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
-            .unwrap()
-            .write_all(&src)
-            .unwrap();
-
         let counts = count_simple(&src);
         let mut tree = build_tree_fast_1(&counts);
         // println!("{}", tree);
@@ -527,12 +523,6 @@ mod tests {
         let src: Vec<u8> = vec![
             1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,4,4,4,5,6
         ];
-        use std::io::Write;
-        std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
-            .unwrap()
-            .write_all(&src)
-            .unwrap();
-
         let counts = count_simple(&src);
         let mut tree = build_tree_fast(&counts);
         // tree has height of 5
@@ -560,11 +550,6 @@ mod tests {
         let src: Vec<u8> = vec![
             183, 47, 40, 107, 107, 93, 107, 107, 107, 107, 107, 107, 107, 107, 107, 107, 104, 58, 43
         ];
-        use std::io::Write;
-        std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
-            .unwrap()
-            .write_all(&src)
-            .unwrap();
         let counts = count_simple(&src);
         let mut tree = build_tree_fast(&counts);
         println!("{}", tree);

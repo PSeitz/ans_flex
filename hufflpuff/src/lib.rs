@@ -139,30 +139,30 @@ mod tests {
     use crate::*;
     use std::collections::HashSet;
 
-    #[test]
-    fn test_example() {
-        let all_bytes: Vec<u8> = vec![
-            0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,4,5
-        ];
+    // #[test]
+    // fn test_example() {
+    //     let all_bytes: Vec<u8> = vec![
+    //         0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,4,5
+    //     ];
         
-        use std::io::Write;
-        std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
-            .unwrap()
-            .write_all(&all_bytes)
-            .unwrap();
+    //     use std::io::Write;
+    //     std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
+    //         .unwrap()
+    //         .write_all(&all_bytes)
+    //         .unwrap();
 
-        let mut test_data = vec![];
-        use std::io::Read;
-        std::fs::File::open("../../FiniteStateEntropy/programs/test_data_100")
-            .unwrap()
-            .read_to_end(&mut test_data)
-            .unwrap();
+    //     let mut test_data = vec![];
+    //     use std::io::Read;
+    //     std::fs::File::open("../../FiniteStateEntropy/programs/test_data_100")
+    //         .unwrap()
+    //         .read_to_end(&mut test_data)
+    //         .unwrap();
 
-        let counts = count_simple(&test_data);
-        let _tree = build_tree_fast(&counts);
+    //     let counts = count_simple(&test_data);
+    //     let _tree = build_tree_fast(&counts);
 
-        // println!("{}", tree);
-    }
+    //     // println!("{}", tree);
+    // }
     #[test]
     fn special_case() {
         let src: Vec<u8> = vec![
