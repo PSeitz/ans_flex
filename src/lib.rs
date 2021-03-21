@@ -19,21 +19,20 @@ foundation in math and compression it will be difficult to follow.
 use crate::table::DecompressionTable;
 use crate::decompress::fse_decompress as other_fse_decompress;
 use crate::table::build_decompression_table;
-use crate::hist::NormCountsTable;
-use crate::bitstream::bit_highbit32;
-use crate::bitstream::BitCstream;
+
+use bitstream::BitCstreamOwned;
 use crate::compress::fse_compress;
-pub use crate::hist::count_simple;
-use crate::hist::get_max_symbol_value;
-use crate::hist::get_normalized_counts;
-use crate::hist::CountsTable;
+use hist::NormCountsTable;
+use hist::count_simple;
+use hist::get_max_symbol_value;
+use hist::get_normalized_counts;
+use hist::CountsTable;
 use crate::table::build_compression_table;
 use crate::table::fse_optimal_table_log;
 
-pub mod bitstream;
 pub mod compress;
 pub mod decompress;
-pub mod hist;
+// pub mod hist;
 pub mod table;
 
 pub const FSE_DEFAULT_MEMORY_USAGE: u32 = 13;
@@ -77,7 +76,7 @@ fn test_get_ans_table_size() {
     assert_eq!(get_ans_table_size(FSE_DEFAULT_TABLELOG, 255), 1537);
 }
 
-pub fn compress(input: &[u8]) -> BitCstream {
+pub fn compress(input: &[u8]) -> BitCstreamOwned {
     let counts = count_simple(&input);
     let max_count = *counts.iter().max().unwrap() as usize;
     if max_count == input.len() {
@@ -123,7 +122,7 @@ pub fn fse_decompress(output: &mut Vec<u8>, input: &[u8], table: &DecompressionT
 #[cfg(test)]
 mod tests {
 
-    use crate::hist::count_simple;
+    use hist::count_simple;
     use std::sync::Once;
 
     static INIT: Once = Once::new();
@@ -191,8 +190,8 @@ mod tests {
 
         let out = compress(&test_data);
         dbg!(out.data_pos);
-        dbg!(out.bit_pos);
-        dbg!(out.bit_container);
+        // dbg!(out.bit_pos);
+        // dbg!(out.bit_container);
     }
 
     #[test]
@@ -221,38 +220,38 @@ mod tests {
     #[test]
     fn test_66k_json() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_66k_JSON.txt");
+        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_66k_JSON.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_65k_text() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_65k.txt");
+        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_65k.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_34k_text() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_34k.txt");
+        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_34k.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_1k_text() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../benches/compression_1k.txt");
+        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_1k.txt");
         inverse(TEST_DATA);
     }
     
     #[test]
     fn test_v4_uuids_19_k() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../benches/v4_uuids_19k.txt");
+        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/v4_uuids_19k.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_v4_uuids_93_k() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../benches/v4_uuids_93k.txt");
+        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/v4_uuids_93k.txt");
         inverse(TEST_DATA);
     }
     

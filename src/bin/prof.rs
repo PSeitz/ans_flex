@@ -1,9 +1,9 @@
 use ans_flex::decompress;
-use ans_flex::count_simple;
-use ans_flex::hist::get_max_symbol_value;
+use hist::count_simple;
+use hist::get_max_symbol_value;
 use ans_flex::table::fse_optimal_table_log;
 use ans_flex::FSE_DEFAULT_TABLELOG;
-use ans_flex::hist::get_normalized_counts;
+use hist::get_normalized_counts;
 use ans_flex::compress;
 
 // fn main() {
@@ -18,7 +18,7 @@ use ans_flex::compress;
 // }
 
 fn main() {
-    const COMPRESSION66K: &'static [u8] = include_bytes!("../../benches/compression_66k_JSON.txt");
+    const COMPRESSION66K: &'static [u8] = include_bytes!("../../test_data/compression_66k_JSON.txt");
     let test_data = COMPRESSION66K;
     let mut len = 0;
     // let yo = compress(COMPRESSION66K);

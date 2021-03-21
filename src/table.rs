@@ -1,4 +1,5 @@
-use crate::hist::NormCountsTable;
+use bitstream::highbit_pos;
+use hist::NormCountsTable;
 use crate::*;
 use log::log_enabled;
 use log::Level::{Debug, Trace};
@@ -51,17 +52,21 @@ impl FseSymbolCompressionTransform {
 /// provides the minimum log size to safely represent a distribution
 pub fn fse_min_table_log(src_size: usize, max_symbol_value: u32) -> u32 {
     assert!(src_size > 1); // not supported
-    let min_bits_src: u32 = bit_highbit32(src_size as u32) + 1;
-    let min_bits_symbols: u32 = bit_highbit32(max_symbol_value) + 2;
+    let min_bits_src: u32 = highbit_pos(src_size as u32) + 1;
+    let min_bits_symbols: u32 = highbit_pos(max_symbol_value) + 2;
     min_bits_src.min(min_bits_symbols)
 }
 
 /// calculate recommended table_log size
 pub fn fse_optimal_table_log(max_table_log: u32, src_size: usize, max_symbol_value: u32) -> u32 {
+    // magic number minus 2, https://github.com/Cyan4973/FiniteStateEntropy/blob/5b3f8551695351d2a16d383c55bd7cddfd5c3813/lib/fse_compress.c#L341
+    fse_optimal_table_log_interal(max_table_log, src_size, max_symbol_value, 2)
+}
+/// calculate recommended table_log size
+pub fn fse_optimal_table_log_interal(max_table_log: u32, src_size: usize, max_symbol_value: u32, minus: u32) -> u32 {
     let mut table_log = max_table_log;
 
-    // magic number minus 2, https://github.com/Cyan4973/FiniteStateEntropy/blob/5b3f8551695351d2a16d383c55bd7cddfd5c3813/lib/fse_compress.c#L341
-    let max_bits_src = bit_highbit32(src_size as u32 - 1) - 2;
+    let max_bits_src = highbit_pos(src_size as u32 - 1) - minus;
     let min_bits = fse_min_table_log(src_size, max_symbol_value);
 
     table_log = table_log.min(max_bits_src); // accuracy can be reduced
@@ -76,7 +81,7 @@ pub fn fse_optimal_table_log(max_table_log: u32, src_size: usize, max_symbol_val
 #[test]
 fn test_table_log_limit() {
     // Max value of min bits required imposed by FSE_MAX_SYMBOL_VALUE (too many min max :)
-    let min_bits_symbols: u32 = bit_highbit32(FSE_MAX_SYMBOL_VALUE) + 2;
+    let min_bits_symbols: u32 = highbit_pos(FSE_MAX_SYMBOL_VALUE) + 2;
     assert_eq!(min_bits_symbols, 9);
 
     // make sure the upper bound FSE_MAX_TABLELOG is not smaller than the upper bound imposed by number of symbols
@@ -201,7 +206,7 @@ pub fn build_compression_table(
                 }
                 _ => {
                     let max_bits_out: u32 =
-                        table_log - bit_highbit32(norm_counts[symbol] as u32 - 1);
+                        table_log - highbit_pos(norm_counts[symbol] as u32 - 1);
                     let min_state_plus: u32 = (norm_counts[symbol] as u32) << max_bits_out;
                     symbol_tt[symbol].delta_nb_bits = (max_bits_out << 16) - min_state_plus;
                     symbol_tt[symbol].delta_find_state = total - norm_counts[symbol] as i32;
@@ -281,7 +286,6 @@ pub fn build_decompression_table(
         }
     }
 
-
     // spread symbols - TODO basically the same as in compression
     {
         let table_mask = table_size - 1;
@@ -318,7 +322,7 @@ pub fn build_decompression_table(
 
         // state used, increment state
         next_symbol_table[symbol] += 1;
-        decode_state.nb_bits = table_log as u8 - bit_highbit32(next_state as u32) as u8;
+        decode_state.nb_bits = table_log as u8 - highbit_pos(next_state as u32) as u8;
         decode_state.new_state = (next_state << decode_state.nb_bits) - table_size as u16;
     }
 

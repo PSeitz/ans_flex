@@ -7,6 +7,14 @@ edition = "2018"
 [dependencies]
 log = "0.4.13"
 
+[dependencies.bitstream]
+path = "bitstream"
+[dependencies.hist]
+path = "hist"
+
+[dependencies.hufflpuff]
+path = "hufflpuff"
+
 [dev-dependencies]
 env_logger = "0.8.2"
 criterion = "0.3.4"
@@ -24,3 +32,12 @@ path = "src/bin/prof.rs"
 debug = true
 lto = true
 opt-level = 3
+
+[workspace]
+
+members = [
+    ".",
+    "hufflpuff",
+    "hist",
+    "bitstream",
+]

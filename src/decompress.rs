@@ -1,4 +1,4 @@
-use crate::bitstream::{BitDstream, BitDstreamStatus};
+use bitstream::{BitDStreamReverse, BitDstreamStatus};
 use crate::table::DecompressionTable;
 
 /// Decomprssion State context. Multiple ones are possible
@@ -8,7 +8,7 @@ struct FseDState {
 }
 
 impl FseDState {
-    fn new(bit_stream: &mut BitDstream, table_log: u32, input: &[u8]) -> Self {
+    fn new(bit_stream: &mut BitDStreamReverse, table_log: u32, input: &[u8]) -> Self {
         let state = bit_stream.read_bits(table_log as u32);
         bit_stream.reload_stream(input);
         // DStatePtr->table = dt + 1;  TODO?
@@ -23,7 +23,7 @@ impl FseDState {
 /// 
 #[inline]
 pub fn fse_decompress(output: &mut Vec<u8>, input: &[u8], table: &DecompressionTable, table_log: u32) {
-    let mut bit_stream = BitDstream::new(input);
+    let mut bit_stream = BitDStreamReverse::new(input);
 
     let mut state1 = FseDState::new(&mut bit_stream, table_log, input);
     let mut state2 = FseDState::new(&mut bit_stream, table_log, input);
@@ -86,7 +86,7 @@ pub fn fse_decompress(output: &mut Vec<u8>, input: &[u8], table: &DecompressionT
 fn fse_decode_symbol(
     table: &DecompressionTable,
     d_state: &mut FseDState,
-    bit_d: &mut BitDstream,
+    bit_d: &mut BitDStreamReverse,
     fast:bool
 ) -> u8 {
     if fast {
@@ -101,7 +101,7 @@ fn fse_decode_symbol(
 fn internal_fse_decode_symbol_fast(
     table: &DecompressionTable,
     d_state: &mut FseDState,
-    bit_d: &mut BitDstream,
+    bit_d: &mut BitDStreamReverse,
 ) -> u8 {
     let d_info = unsafe{table.table.get_unchecked(d_state.state)};
 
@@ -117,7 +117,7 @@ fn internal_fse_decode_symbol_fast(
 fn internal_fse_decode_symbol(
     table: &DecompressionTable,
     d_state: &mut FseDState,
-    bit_d: &mut BitDstream,
+    bit_d: &mut BitDStreamReverse,
 ) -> u8 {
     let d_info = unsafe{table.table.get_unchecked(d_state.state)};
     // let d_info = table.table[d_state.state];
