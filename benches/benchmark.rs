@@ -1,13 +1,13 @@
 extern crate criterion;
 
-use hist::get_max_symbol_value;
-use ans_flex::table::fse_optimal_table_log;
-use ans_flex::FSE_DEFAULT_TABLELOG;
-use hist::get_normalized_counts;
-use ans_flex::decompress;
 use self::criterion::*;
 use ans_flex::compress;
+use ans_flex::decompress;
+use ans_flex::table::fse_optimal_table_log;
+use ans_flex::FSE_DEFAULT_TABLELOG;
 use hist::count_simple;
+use hist::get_max_symbol_value;
+use hist::get_normalized_counts;
 use hufflpuff::table::build_table;
 
 const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");
@@ -62,13 +62,9 @@ fn compression(c: &mut Criterion) {
     for input in ALL.iter() {
         let input_bytes = input.len() as u64;
         group.throughput(Throughput::Bytes(input_bytes));
-        group.bench_with_input(
-            BenchmarkId::new("ans_flex", input_bytes),
-            &input,
-            |b, i| {
-                b.iter(|| compress(i));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("ans_flex", input_bytes), &input, |b, i| {
+            b.iter(|| compress(i));
+        });
         group.bench_with_input(
             BenchmarkId::new("build_table huffl", input_bytes),
             &input,
@@ -96,8 +92,10 @@ fn decompression(c: &mut Criterion) {
                 b.iter(|| {
                     let counts = count_simple(&input);
                     let max_symbol_value = get_max_symbol_value(&counts);
-                    let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
-                    let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
+                    let table_log =
+                        fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
+                    let norm_counts =
+                        get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
                     decompress(&i, &norm_counts, table_log, input.len(), max_symbol_value)
                 });
             },
@@ -116,8 +114,6 @@ fn decompression(c: &mut Criterion) {
     }
     group.finish();
 }
-
-
 
 // criterion_group!(benches, count, compression);
 criterion_group!(benches, compression, decompression);

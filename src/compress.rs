@@ -1,10 +1,9 @@
-use bitstream::NUM_BITS_IN_BIT_CONTAINER;
+use crate::table::CompressionTable;
+use crate::FSE_MAX_TABLELOG;
 use bitstream::BitCstream;
 use bitstream::BitCstreamOwned;
 use bitstream::BIT_CONTAINER_BYTES;
-use crate::table::CompressionTable;
-use crate::FSE_MAX_TABLELOG;
-
+use bitstream::NUM_BITS_IN_BIT_CONTAINER;
 
 #[derive(Debug)]
 struct FseCState {
@@ -53,8 +52,8 @@ pub fn fse_compress<'a>(input: &[u8], comp: &CompressionTable, table_log: u32) -
     // let mut bit_c = BitCstream::new(max_compressed_size);
 
     let (stream_data_pos, stream_bit_pos) = {
-        let mut index = input.len() ;
-    
+        let mut index = input.len();
+
         let (mut state1, mut state2) = if input.len() & 1 == 1 {
             index -= 1;
             let mut state1 = FseCState::new(input[index], &comp);
@@ -71,7 +70,7 @@ pub fn fse_compress<'a>(input: &[u8], comp: &CompressionTable, table_log: u32) -
             let state1 = FseCState::new(input[index], &comp);
             (state1, state2)
         };
-    
+
         // join to mod 4
         if NUM_BITS_IN_BIT_CONTAINER > FSE_MAX_TABLELOG * 4 + 7
             // test bit 2
@@ -84,7 +83,7 @@ pub fn fse_compress<'a>(input: &[u8], comp: &CompressionTable, table_log: u32) -
             bit_c.flush_bits_fast(&mut data);
         }
         // println!("START LOOP");
-    
+
         // these loops are correct for FSE_MAX_TABLELOG = 12
         #[cfg(target_pointer_width = "64")]
         {
@@ -97,7 +96,7 @@ pub fn fse_compress<'a>(input: &[u8], comp: &CompressionTable, table_log: u32) -
                 bit_c.flush_bits_fast(&mut data);
             }
         }
-    
+
         #[cfg(target_pointer_width = "32")]
         {
             // 32 bit version
@@ -108,16 +107,15 @@ pub fn fse_compress<'a>(input: &[u8], comp: &CompressionTable, table_log: u32) -
                 bit_c.flush_bits_fast(&mut data);
             }
         }
-    
+
         fse_flush_cstate(&mut bit_c, &mut state2, table_log, &mut data);
         fse_flush_cstate(&mut bit_c, &mut state1, table_log, &mut data);
-    
+
         bit_c.finish_stream(&mut data);
         (bit_c.data_pos, bit_c.bit_pos)
     };
 
     BitCstreamOwned::new(data, stream_data_pos, stream_bit_pos)
-    
 }
 
 #[inline]
@@ -134,18 +132,22 @@ fn fse_encode_symbol(
 
         let nb_bits_out: u32 = ((c_state.value + symbol_tt.delta_nb_bits as usize) >> 16) as u32;
         bit_c.add_bits(c_state.value, nb_bits_out);
-        let state_index =
-            ((c_state.value >> nb_bits_out) as isize + symbol_tt.delta_find_state as isize) as usize;
+        let state_index = ((c_state.value >> nb_bits_out) as isize
+            + symbol_tt.delta_find_state as isize) as usize;
 
         // c_state.value = comp.state_table [state_index] as usize;
         c_state.value = *comp.state_table.get_unchecked(state_index) as usize;
         // println!("symbol {:?} nb_bits_out {:?} c_state.value {:?}", symbol, nb_bits_out, c_state.value);
     }
-
 }
 
 #[inline]
-fn fse_flush_cstate(bit_c: &mut BitCstream, c_state: &mut FseCState, table_log: u32, data: &mut[u8]) {
+fn fse_flush_cstate(
+    bit_c: &mut BitCstream,
+    c_state: &mut FseCState,
+    table_log: u32,
+    data: &mut [u8],
+) {
     bit_c.add_bits(c_state.value, table_log);
     bit_c.flush_bits_fast(data);
 }

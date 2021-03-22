@@ -50,7 +50,7 @@ pub struct MinNode {
 
 impl core::fmt::Debug for MinNode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // let 
+        // let
         f.write_fmt(format_args!(
             "Node{{ val:{:#08b} number_bits:{:?} }}",
             self.val, self.number_bits

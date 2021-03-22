@@ -1,6 +1,6 @@
+use crate::*;
 use bitstream::highbit_pos;
 use hist::NormCountsTable;
-use crate::*;
 use log::log_enabled;
 use log::Level::{Debug, Trace};
 use log::*;
@@ -63,7 +63,12 @@ pub fn fse_optimal_table_log(max_table_log: u32, src_size: usize, max_symbol_val
     fse_optimal_table_log_interal(max_table_log, src_size, max_symbol_value, 2)
 }
 /// calculate recommended table_log size
-pub fn fse_optimal_table_log_interal(max_table_log: u32, src_size: usize, max_symbol_value: u32, minus: u32) -> u32 {
+pub fn fse_optimal_table_log_interal(
+    max_table_log: u32,
+    src_size: usize,
+    max_symbol_value: u32,
+    minus: u32,
+) -> u32 {
     let mut table_log = max_table_log;
 
     let max_bits_src = highbit_pos(src_size as u32 - 1) - minus;
@@ -205,8 +210,7 @@ pub fn build_compression_table(
                     total += 1;
                 }
                 _ => {
-                    let max_bits_out: u32 =
-                        table_log - highbit_pos(norm_counts[symbol] as u32 - 1);
+                    let max_bits_out: u32 = table_log - highbit_pos(norm_counts[symbol] as u32 - 1);
                     let min_state_plus: u32 = (norm_counts[symbol] as u32) << max_bits_out;
                     symbol_tt[symbol].delta_nb_bits = (max_bits_out << 16) - min_state_plus;
                     symbol_tt[symbol].delta_find_state = total - norm_counts[symbol] as i32;
@@ -250,7 +254,7 @@ pub fn build_compression_table(
 #[derive(Debug)]
 pub struct DecompressionTable {
     pub table: Vec<FseDecode>,
-    pub fast: bool
+    pub fast: bool,
 }
 
 // pub type DecompressionTable = Vec<FseDecode>;
@@ -326,10 +330,9 @@ pub fn build_decompression_table(
         decode_state.new_state = (next_state << decode_state.nb_bits) - table_size as u16;
     }
 
-    
     DecompressionTable {
         table: table_decode,
-        fast: fast_mode
+        fast: fast_mode,
     }
 }
 

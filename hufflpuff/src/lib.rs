@@ -1,11 +1,11 @@
-pub mod tree;
 pub mod compress;
+pub mod decompress;
+pub mod tree;
 use crate::tree::tree_node::Node;
 use crate::tree::Tree;
 use std::collections::BinaryHeap;
 
 pub use crate::tree::build_tree_fast;
-
 
 pub const MAX_SYMBOL_VALUE: u32 = u8::MAX as u32;
 
@@ -21,15 +21,12 @@ pub const HUF_TABLELOG_MAX: u32 = 12;
 pub const HUF_TABLELOG_ABSOLUTEMAX: u32 = 15;
 pub const HUF_TABLELOG_DEFAULT: u32 = 11;
 
-
 pub fn huf_blockbound(size: usize) -> usize {
     size + (size >> 8) + 8
 }
 pub fn huf_compressbound(size: usize) -> usize {
     huf_blockbound(size) + HUF_CTABLEBOUND as usize
 }
-
-
 
 // // return bits written
 // fn encode_huff(state: &mut u32, symbol: u8, codes: &HuffmanCodes) -> usize {
@@ -144,7 +141,7 @@ mod tests {
     //     let all_bytes: Vec<u8> = vec![
     //         0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,4,5
     //     ];
-        
+
     //     use std::io::Write;
     //     std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
     //         .unwrap()
@@ -182,7 +179,6 @@ mod tests {
         let counts = count_simple(&src);
         let tree = build_tree_fast(&counts);
         test_prefix_property(&tree_to_table(&tree));
-
     }
 
     #[test]
@@ -276,9 +272,14 @@ mod tests {
     fn test_66k_json() {
         const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/compression_66k_JSON.txt");
         let tree = test_tree(TEST_DATA);
-        println!("estimate_compressed_size: {:?}", tree.estimate_compressed_size());
-        println!("ratio: {:?}", tree.estimate_compressed_size() as f32 / TEST_DATA.len() as f32);
-
+        println!(
+            "estimate_compressed_size: {:?}",
+            tree.estimate_compressed_size()
+        );
+        println!(
+            "ratio: {:?}",
+            tree.estimate_compressed_size() as f32 / TEST_DATA.len() as f32
+        );
     }
     #[test]
     fn test_65k_text() {
@@ -286,8 +287,14 @@ mod tests {
         let counts = count_simple(&TEST_DATA);
         let tree = build_tree_fast(&counts);
         validate_tree(&tree);
-        println!("estimate_compressed_size: {:?}", tree.estimate_compressed_size());
-        println!("ratio: {:?}", tree.estimate_compressed_size() as f32 / TEST_DATA.len() as f32);
+        println!(
+            "estimate_compressed_size: {:?}",
+            tree.estimate_compressed_size()
+        );
+        println!(
+            "ratio: {:?}",
+            tree.estimate_compressed_size() as f32 / TEST_DATA.len() as f32
+        );
     }
     #[test]
     fn test_34k_text() {
@@ -312,7 +319,7 @@ mod tests {
     }
 
     fn test_tree(data: &[u8]) -> tree::Tree {
-    	let counts = count_simple(&data);
+        let counts = count_simple(&data);
         let tree = build_tree_fast(&counts);
         validate_tree(&tree);
         tree
@@ -321,7 +328,7 @@ mod tests {
     #[test]
     fn test_prefix_codes_zstd_format_example() {
         let src: Vec<u8> = vec![
-            0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,4,5
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 4, 5,
         ];
 
         let counts = count_simple(&src);
@@ -330,20 +337,18 @@ mod tests {
         let table = tree_to_table(&tree);
         test_prefix_property(&tree_to_table(&tree));
 
-        // check prefix codes 
-        assert_eq!(table[0].val, 1);            // 1
+        // check prefix codes
+        assert_eq!(table[0].val, 1); // 1
         assert_eq!(table[0].number_bits, 1);
-        assert_eq!(table[1].val, 1);            // 01
+        assert_eq!(table[1].val, 1); // 01
         assert_eq!(table[1].number_bits, 2);
-        assert_eq!(table[2].val, 1);            // 001
+        assert_eq!(table[2].val, 1); // 001
         assert_eq!(table[2].number_bits, 3);
         assert_eq!(table[3].val, 0);
         assert_eq!(table[3].number_bits, 0);
-        assert_eq!(table[4].val, 0);            // 0000
+        assert_eq!(table[4].val, 0); // 0000
         assert_eq!(table[4].number_bits, 4);
-        assert_eq!(table[5].val, 1);            // 0001
+        assert_eq!(table[5].val, 1); // 0001
         assert_eq!(table[5].number_bits, 4);
-
     }
-
 }

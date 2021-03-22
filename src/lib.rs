@@ -16,19 +16,19 @@ foundation in math and compression it will be difficult to follow.
 
 */
 
-use crate::table::DecompressionTable;
 use crate::decompress::fse_decompress as other_fse_decompress;
 use crate::table::build_decompression_table;
+use crate::table::DecompressionTable;
 
-use bitstream::BitCstreamOwned;
 use crate::compress::fse_compress;
-use hist::NormCountsTable;
+use crate::table::build_compression_table;
+use crate::table::fse_optimal_table_log;
+use bitstream::BitCstreamOwned;
 use hist::count_simple;
 use hist::get_max_symbol_value;
 use hist::get_normalized_counts;
 use hist::CountsTable;
-use crate::table::build_compression_table;
-use crate::table::fse_optimal_table_log;
+use hist::NormCountsTable;
 
 pub mod compress;
 pub mod decompress;
@@ -100,22 +100,28 @@ pub fn compress(input: &[u8]) -> BitCstreamOwned {
     out
 }
 
-
-pub fn decompress(compressed: &[u8], norm_counts: &NormCountsTable, table_log: u32, orig_size: usize, max_symbol_value: u32) -> Vec<u8> {
+pub fn decompress(
+    compressed: &[u8],
+    norm_counts: &NormCountsTable,
+    table_log: u32,
+    orig_size: usize,
+    max_symbol_value: u32,
+) -> Vec<u8> {
     let mut output = vec![0_u8, 0];
     output.resize(orig_size, 0);
 
-    let decomp_table = build_decompression_table(
-        norm_counts,
-        table_log,
-        max_symbol_value,
-    );
+    let decomp_table = build_decompression_table(norm_counts, table_log, max_symbol_value);
 
-    fse_decompress(&mut output,&compressed, &decomp_table, table_log);
+    fse_decompress(&mut output, &compressed, &decomp_table, table_log);
     output
 }
 
-pub fn fse_decompress(output: &mut Vec<u8>, input: &[u8], table: &DecompressionTable, table_log: u32) {
+pub fn fse_decompress(
+    output: &mut Vec<u8>,
+    input: &[u8],
+    table: &DecompressionTable,
+    table_log: u32,
+) {
     other_fse_decompress(output, &input, &table, table_log)
 }
 
@@ -158,7 +164,6 @@ mod tests {
 
         buffer
     }
-
 
     fn get_test_data_flexible(size: usize) -> Vec<u8> {
         use std::io::Read;
@@ -241,7 +246,7 @@ mod tests {
         const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_1k.txt");
         inverse(TEST_DATA);
     }
-    
+
     #[test]
     fn test_v4_uuids_19_k() {
         setup();
@@ -254,7 +259,7 @@ mod tests {
         const TEST_DATA: &'static [u8] = include_bytes!("../test_data/v4_uuids_93k.txt");
         inverse(TEST_DATA);
     }
-    
+
     fn inverse(test_data: &[u8]) {
         setup();
         let out = compress(&test_data);
@@ -264,10 +269,18 @@ mod tests {
 
         let counts = count_simple(&test_data);
         let max_symbol_value = get_max_symbol_value(&counts);
-        let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, test_data.len(), max_symbol_value);
-        let norm_counts = get_normalized_counts(&counts, table_log, test_data.len(), max_symbol_value);
+        let table_log =
+            fse_optimal_table_log(FSE_DEFAULT_TABLELOG, test_data.len(), max_symbol_value);
+        let norm_counts =
+            get_normalized_counts(&counts, table_log, test_data.len(), max_symbol_value);
 
-        let decompressed = decompress(&out.get_compressed_data(), &norm_counts, table_log, test_data.len(), max_symbol_value);
+        let decompressed = decompress(
+            &out.get_compressed_data(),
+            &norm_counts,
+            table_log,
+            test_data.len(),
+            max_symbol_value,
+        );
         assert_eq!(decompressed, test_data);
     }
 }

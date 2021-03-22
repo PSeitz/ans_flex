@@ -1,4 +1,4 @@
-use core::{panic};
+use core::panic;
 
 use crate::tree::minimum_tree_depth;
 use crate::tree::tree_node::MinNode;
@@ -49,7 +49,6 @@ pub fn build_tree_fast_1(counts: &[usize; 256]) -> Tree {
 
     // walking upwards until all symbols have a parent
     while pos <= last_symbol_node_pos as usize {
-
         // get the next to lowest nodes and build a parent
         let node1_pos = {
             // TODO: Check what is better nodes[pos].count < nodes[parent_check_pos].count or  nodes[pos].count <= nodes[parent_check_pos].count
@@ -176,7 +175,6 @@ pub fn tree_to_table(tree: &Tree) -> [MinNode; 256] {
     symbol_lookup_table
 }
 
-
 /// Limits  depth of the tree
 /// Note that the parents are not updated for performance reason and therefore incorrect
 #[inline]
@@ -197,7 +195,7 @@ pub fn set_max_height(tree: &mut Tree, max_bits: u8) {
         }
     }
 
-    debt >>= largest_bits - max_bits;  // debt is a multiple of base_cost
+    debt >>= largest_bits - max_bits; // debt is a multiple of base_cost
 
     // build index of depth start and end node positions for each depth
     let mut depth_index = get_depth_index(&tree.nodes);
@@ -210,7 +208,7 @@ pub fn set_max_height(tree: &mut Tree, max_bits: u8) {
             continue;
         } else {
             // TODO instead moving the symbol down, the cost of two nodes here could be compared with one node on
-            // the higher level, in order to generate a more optimal tree 
+            // the higher level, in order to generate a more optimal tree
 
             // demote symbol in tree by increasing number of bits, since the tree is sorted, the node with the lowest count in the depth will be demoted
             let demote_node_pos = depth_index[check_depth as usize].start;
@@ -234,10 +232,10 @@ pub fn set_max_height(tree: &mut Tree, max_bits: u8) {
     if debt < 0 {
         // if we overshoot and pay back too much debt, the tree may be in an invalid state, which can cause it to generate wrong prefix codes
         let mut check_depth = max_bits;
-        while debt<0 {
+        while debt < 0 {
             if depth_index[check_depth as usize].is_empty() {
                 check_depth -= 1;
-                if check_depth == 0{
+                if check_depth == 0 {
                     panic!("could not repay debt");
                 }
                 continue;
@@ -251,7 +249,6 @@ pub fn set_max_height(tree: &mut Tree, max_bits: u8) {
             debt += 1;
         }
     }
-
 }
 
 type DepthIndex = [RangeExlusive; 16];
@@ -311,7 +308,7 @@ pub fn decrement_return_old(val: &mut usize) -> usize {
 
 /// will validate the table to have generated correct prefix properties for all symbols.
 /// This validation is rather slow and should be used in a regular compression execution.
-pub fn test_prefix_property(table: &[MinNode; 256])  {
+pub fn test_prefix_property(table: &[MinNode; 256]) {
     let mut node_by_num_bits: Vec<Vec<MinNode>> = vec![];
     node_by_num_bits.resize(16, vec![]);
     let mut max_bits = 0;
@@ -321,13 +318,18 @@ pub fn test_prefix_property(table: &[MinNode; 256])  {
     }
     for num_bits in (2..=max_bits).rev() {
         // let mut lower_bits_nodes = vec![];
-        let lower_bits_nodes: Vec<MinNode> = (1..num_bits-1).flat_map(|num_bits|node_by_num_bits[num_bits as usize].to_vec()).collect();
+        let lower_bits_nodes: Vec<MinNode> = (1..num_bits - 1)
+            .flat_map(|num_bits| node_by_num_bits[num_bits as usize].to_vec())
+            .collect();
         for node in &node_by_num_bits[num_bits as usize] {
             // find any node in the lower bits which has the same prefix
-            for comp_node in &lower_bits_nodes{
+            for comp_node in &lower_bits_nodes {
                 let bit_diff = num_bits - comp_node.number_bits;
                 if (node.val >> bit_diff) == comp_node.val {
-                    panic!("invalid prefix detected between {:?} and {:?}", node, comp_node);
+                    panic!(
+                        "invalid prefix detected between {:?} and {:?}",
+                        node, comp_node
+                    );
                 }
             }
         }
@@ -420,11 +422,9 @@ mod tests {
 
     #[test]
     fn test_max_height_check_limits() {
-        // only 4 nodes and height of 2 means the tree will be converted to a perfectly balanced tree 
+        // only 4 nodes and height of 2 means the tree will be converted to a perfectly balanced tree
         // doesn't make sense for compression, but to verify the check limits of the algorithm
-        let src: Vec<u8> = vec![
-            1, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4,
-        ];
+        let src: Vec<u8> = vec![1, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4];
 
         let counts = count_simple(&src);
         let mut tree = build_tree_fast_1(&counts);
@@ -441,9 +441,7 @@ mod tests {
     #[should_panic(expected = "minimum_tree_depth")]
     fn test_max_height_too_small() {
         // 5 nodes and height of 2 means the tree will too small
-        let src: Vec<u8> = vec![
-            1, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 5
-        ];
+        let src: Vec<u8> = vec![1, 2, 3, 3, 4, 4, 4, 4, 4, 4, 4, 5];
 
         let counts = count_simple(&src);
         let mut tree = build_tree_fast_1(&counts);
@@ -474,7 +472,8 @@ mod tests {
     fn issue_1_max_height_debt_repay() {
         // limit assertions were wrong
         let src: Vec<u8> = vec![
-            1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+            1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7,
+            7, 7, 7, 7, 7, 7, 7,
         ];
 
         let counts = count_simple(&src);
@@ -489,20 +488,23 @@ mod tests {
     #[test]
     fn test_biggest_count_symbol() {
         let src: Vec<u8> = vec![
-            1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
+            1, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+            7, 7, 7, 7, 7, 7, 7, 7,
         ];
 
         let counts = count_simple(&src);
         let tree = build_tree_fast_1(&counts);
-        assert_eq!(tree.nodes[tree.last_symbol_node_pos as usize].symbol, Some(6) );
+        assert_eq!(
+            tree.nodes[tree.last_symbol_node_pos as usize].symbol,
+            Some(6)
+        );
         test_prefix_property(&tree_to_table(&tree));
     }
-
 
     #[test]
     fn max_height_check_count_order() {
         let src: Vec<u8> = vec![
-            1, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8
+            1, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
         ];
 
         let counts = count_simple(&src);
@@ -521,7 +523,8 @@ mod tests {
     #[test]
     fn set_max_height_multiple_levels() {
         let src: Vec<u8> = vec![
-            1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,4,4,4,5,6
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
+            2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 5, 6,
         ];
         let counts = count_simple(&src);
         let mut tree = build_tree_fast(&counts);
@@ -539,16 +542,15 @@ mod tests {
     }
     #[test]
     fn fuzzer_issue_1_255_value() {
-        let src: Vec<u8> = vec![
-            255
-        ];
+        let src: Vec<u8> = vec![255];
         let counts = count_simple(&src);
         let _tree = build_tree_fast(&counts);
     }
     #[test]
     fn fuzzer_issue_2_repay_debt() {
         let src: Vec<u8> = vec![
-            183, 47, 40, 107, 107, 93, 107, 107, 107, 107, 107, 107, 107, 107, 107, 107, 104, 58, 43
+            183, 47, 40, 107, 107, 93, 107, 107, 107, 107, 107, 107, 107, 107, 107, 107, 104, 58,
+            43,
         ];
         let counts = count_simple(&src);
         let mut tree = build_tree_fast(&counts);
@@ -560,14 +562,12 @@ mod tests {
         set_max_height(&mut tree, 3);
         // if tree.get_depth() as usize - 1 >= min_tree_depth{
     }
-
 }
 
-
-// huffNode[0] count:21 byte:1 
-// huffNode[1] count:10 byte:2 
-// huffNode[2] count:6 byte:3 
-// huffNode[3] count:3 byte:4 
-// huffNode[4] count:1 byte:5 
-// huffNode[5] count:1 byte:6 
-// huffNode[6] count:0 byte:0 
+// huffNode[0] count:21 byte:1
+// huffNode[1] count:10 byte:2
+// huffNode[2] count:6 byte:3
+// huffNode[3] count:3 byte:4
+// huffNode[4] count:1 byte:5
+// huffNode[5] count:1 byte:6
+// huffNode[6] count:0 byte:0

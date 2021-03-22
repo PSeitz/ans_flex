@@ -34,7 +34,7 @@ impl Tree {
     pub fn get_symbol_nodes(&self) -> &[Node] {
         &self.nodes[..=self.last_symbol_node_pos as usize]
     }
-    pub fn get_symbol_nodes_mut(&mut self) -> &mut[Node] {
+    pub fn get_symbol_nodes_mut(&mut self) -> &mut [Node] {
         &mut self.nodes[..=self.last_symbol_node_pos as usize]
     }
 

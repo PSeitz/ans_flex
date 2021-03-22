@@ -1,4 +1,4 @@
-/*! 
+/*!
 
 Bitstream handles the writing and reading of bits in an optimized manner. bits are read in reverse order.
 
@@ -37,38 +37,38 @@ fn test_highbit_pos() {
 }
 
 const BIT_MASK: [u32; 32] = [
-    2_u32.pow(0)-1,
-    2_u32.pow(1)-1,
-    2_u32.pow(2)-1,
-    2_u32.pow(3)-1,
-    2_u32.pow(4)-1,
-    2_u32.pow(5)-1,
-    2_u32.pow(6)-1,
-    2_u32.pow(7)-1,
-    2_u32.pow(8)-1,
-    2_u32.pow(9)-1,
-    2_u32.pow(10)-1,
-    2_u32.pow(11)-1,
-    2_u32.pow(12)-1,
-    2_u32.pow(13)-1,
-    2_u32.pow(14)-1,
-    2_u32.pow(15)-1,
-    2_u32.pow(16)-1,
-    2_u32.pow(17)-1,
-    2_u32.pow(18)-1,
-    2_u32.pow(19)-1,
-    2_u32.pow(20)-1,
-    2_u32.pow(21)-1,
-    2_u32.pow(22)-1,
-    2_u32.pow(23)-1,
-    2_u32.pow(24)-1,
-    2_u32.pow(25)-1,
-    2_u32.pow(26)-1,
-    2_u32.pow(27)-1,
-    2_u32.pow(28)-1,
-    2_u32.pow(29)-1,
-    2_u32.pow(30)-1,
-    2_u32.pow(31)-1,
+    2_u32.pow(0) - 1,
+    2_u32.pow(1) - 1,
+    2_u32.pow(2) - 1,
+    2_u32.pow(3) - 1,
+    2_u32.pow(4) - 1,
+    2_u32.pow(5) - 1,
+    2_u32.pow(6) - 1,
+    2_u32.pow(7) - 1,
+    2_u32.pow(8) - 1,
+    2_u32.pow(9) - 1,
+    2_u32.pow(10) - 1,
+    2_u32.pow(11) - 1,
+    2_u32.pow(12) - 1,
+    2_u32.pow(13) - 1,
+    2_u32.pow(14) - 1,
+    2_u32.pow(15) - 1,
+    2_u32.pow(16) - 1,
+    2_u32.pow(17) - 1,
+    2_u32.pow(18) - 1,
+    2_u32.pow(19) - 1,
+    2_u32.pow(20) - 1,
+    2_u32.pow(21) - 1,
+    2_u32.pow(22) - 1,
+    2_u32.pow(23) - 1,
+    2_u32.pow(24) - 1,
+    2_u32.pow(25) - 1,
+    2_u32.pow(26) - 1,
+    2_u32.pow(27) - 1,
+    2_u32.pow(28) - 1,
+    2_u32.pow(29) - 1,
+    2_u32.pow(30) - 1,
+    2_u32.pow(31) - 1,
 ];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -79,7 +79,6 @@ pub enum BitDstreamStatus {
     Overflow,
 }
 
-
 /// Reads bitstream in reverse order
 #[derive(Debug)]
 pub struct BitDStreamReverse {
@@ -87,7 +86,7 @@ pub struct BitDStreamReverse {
     pub(crate) bit_container: BitContainer,
 
     /// Current number of bits consumed
-    /// 
+    ///
     /// Should be smaller than NUM_BITS_IN_BIT_CONTAINER
     pub(crate) bits_consumed: u32,
 
@@ -109,7 +108,7 @@ impl BitDStreamReverse {
         } else {
             let input_pos = 0;
 
-            let mut bytes = [0,0,0,0,0,0,0,0];
+            let mut bytes = [0, 0, 0, 0, 0, 0, 0, 0];
             bytes[..input.len()].copy_from_slice(&input);
             let bit_container = usize::from_le_bytes(bytes);
             (input_pos, bit_container)
@@ -166,12 +165,12 @@ impl BitDStreamReverse {
         }
         // last 7 bytes
         let nb_bytes = self.bits_consumed >> 3;
-        if  nb_bytes > self.input_pos as u32 {
+        if nb_bytes > self.input_pos as u32 {
             self.bits_consumed -= self.input_pos as u32 * 8;
             self.input_pos = 0;
             self.bit_container = read_usize(input, self.input_pos);
             BitDstreamStatus::EndOfBuffer
-        }else{
+        } else {
             self.input_pos -= nb_bytes as usize;
             self.bits_consumed -= nb_bytes * 8;
             self.bit_container = read_usize(input, self.input_pos);
@@ -215,25 +214,25 @@ impl BitDStreamReverse {
         self.bits_consumed += nb_bits;
         value
     }
-
 }
 
 #[inline]
 fn get_middle_bits(bit_container: usize, start: u32, nb_bits: u32) -> usize {
     // dbg!((start & REG_MASK) as usize);
     // dbg!(bit_container >> (start & REG_MASK) as usize);
-    (bit_container >> (start & REG_MASK) as usize) & *unsafe {BIT_MASK.get_unchecked(nb_bits as usize)} as usize
+    (bit_container >> (start & REG_MASK) as usize)
+        & *unsafe { BIT_MASK.get_unchecked(nb_bits as usize) } as usize
 }
 
 #[derive(Debug)]
 pub struct BitCstreamOwned {
     pub(crate) bit_pos: u32,
     pub data_pos: usize,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl BitCstreamOwned {
-    pub fn new(data: Vec<u8>, data_pos: usize, bit_pos: u32,) -> Self{
+    pub fn new(data: Vec<u8>, data_pos: usize, bit_pos: u32) -> Self {
         BitCstreamOwned {
             data,
             data_pos,
@@ -247,11 +246,7 @@ impl BitCstreamOwned {
 
     #[inline]
     pub fn get_compressed_size(&self) -> usize {
-        let last_byte = if self.bit_pos > 0 {
-            1
-        } else {
-            0
-        };
+        let last_byte = if self.bit_pos > 0 { 1 } else { 0 };
         self.data_pos + last_byte
     }
 }
@@ -280,17 +275,13 @@ impl BitCstream {
     }
 
     #[inline]
-    pub fn get_compressed_data<'a>(&self, data: &'a[u8]) -> &'a[u8] {
+    pub fn get_compressed_data<'a>(&self, data: &'a [u8]) -> &'a [u8] {
         &data[..self.get_compressed_size()]
     }
 
     #[inline]
     pub fn get_compressed_size(&self) -> usize {
-        let last_byte = if self.bit_pos > 0 {
-            1
-        } else {
-            0
-        };
+        let last_byte = if self.bit_pos > 0 { 1 } else { 0 };
         self.data_pos + last_byte
     }
 
@@ -313,8 +304,8 @@ impl BitCstream {
         debug_assert!(value >> nb_bits == 0);
         debug_assert!(nb_bits + self.bit_pos < NUM_BITS_IN_BIT_CONTAINER);
 
-        println!("value {:?}", value );
-        println!("nb_bits {:?}", nb_bits );
+        println!("value {:?}", value);
+        println!("nb_bits {:?}", nb_bits);
 
         self.bit_container |= value << self.bit_pos;
         self.bit_pos += nb_bits;
@@ -330,7 +321,7 @@ impl BitCstream {
     //     debug_assert!(self.data.len() > self.data_pos);
 
     //     // TODO check overflow for last bytes
-    //     push_usize(&mut self.data, self.data_pos, self.bit_container); 
+    //     push_usize(&mut self.data, self.data_pos, self.bit_container);
 
     //     self.data_pos += nb_bytes as usize;
     //     self.data_pos = self.data_pos.min(self.data.len());
@@ -352,7 +343,7 @@ impl BitCstream {
         debug_assert!(data.len() > self.data_pos);
 
         // TODO check overflow for last bytes
-        push_usize(data, self.data_pos, self.bit_container); 
+        push_usize(data, self.data_pos, self.bit_container);
 
         self.data_pos += nb_bytes as usize;
         self.bit_pos &= 7;
@@ -373,7 +364,7 @@ impl BitCstream {
 }
 
 #[inline]
-fn push_usize(output: &mut[u8], pos: usize, el: usize) {
+fn push_usize(output: &mut [u8], pos: usize, el: usize) {
     unsafe {
         let out_ptr = output.as_mut_ptr().add(pos);
         core::ptr::copy_nonoverlapping(
@@ -396,7 +387,6 @@ fn read_usize(input: &[u8], pos: usize) -> usize {
     }
     num
 }
-
 
 #[cfg(test)]
 mod tests {
