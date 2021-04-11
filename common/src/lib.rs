@@ -1,4 +1,6 @@
 mod error;
+use std::convert::TryInto;
+
 use error::HistError;
 use log::log_enabled;
 use log::Level::Trace;
@@ -276,10 +278,10 @@ pub const HIST_WKSP_SIZE_U32: usize = 1024;
 pub const HIST_WKSP_SIZE: usize = HIST_WKSP_SIZE_U32 * core::mem::size_of::<usize>();
 
 pub fn FSE_NCountWriteBound(max_symbol_value: u32, table_log: u32) -> u32 {
-    let max_header_size = (((max_symbol_value +1) * table_log) >> 3) + 3;
+    let max_header_size = (((max_symbol_value + 1) * table_log) >> 3) + 3;
     if max_symbol_value == 0 {
         FSE_NCOUNTBOUND
-    }else{
+    } else {
         max_header_size
     }
 }
@@ -300,10 +302,9 @@ pub fn FSE_write_N_Count(
     }
     if out.len() < FSE_NCountWriteBound(max_symbol_value, table_log) as usize {
         FSE_write_N_Count_generic(out, norm_counts, max_symbol_value, table_log, false)
-    }else{
+    } else {
         FSE_write_N_Count_generic(out, norm_counts, max_symbol_value, table_log, true)
     }
-
 }
 
 /// write count metadata into header which is used by FSE and hufmann
@@ -411,6 +412,50 @@ pub fn FSE_write_N_Count_generic(
     Ok(bytes_written)
 }
 
+/// write count metadata into header which is used by FSE and hufmann
+pub fn FSE_read_N_Count(
+    mut data: &[u8],
+    norm_counts: &mut NormCountsTable,
+    max_symbol_value: &mut u32,
+    table_log: &mut u32,
+) -> Result<usize, HistError> {
+    if data.len() < 4 {
+        let mut buffer = [0, 0, 0, 0];
+        buffer[..data.len()].copy_from_slice(&data);
+        return FSE_read_N_Count(data, norm_counts, max_symbol_value, table_log);
+    }
+
+    let mut bit_stream = u32::from_le_bytes(data[..4].try_into().unwrap());
+    let mut nb_bits = (bit_stream & 0xF) + FSE_MIN_TABLELOG; // extract table_log
+    if nb_bits > FSE_TABLELOG_ABSOLUTE_MAX {
+        return Err(HistError::TableLogTooLarge);
+    }
+    bit_stream >>= 4;
+    let bit_count = 4;
+    *table_log = nb_bits;
+    let remaining = (1 << nb_bits) + 1;
+    let threshold = 1 << nb_bits;
+    nb_bits += 1;
+
+    let mut previous_is0 = false;
+    let mut charnum = 0_u32;
+    while remaining > 1 && charnum <= *max_symbol_value {
+        if previous_is0 {
+            let mut n0: u32 = charnum;
+            while bit_stream & 0xFFFF == 0xFFFF {
+                // check if all first 16 bytes are all 1
+                n0 += 24;
+                if data.len() > 5 {
+                    data = &data[2..];
+                    let mut bit_stream =
+                        u32::from_le_bytes(data[..4].try_into().unwrap()) >> bit_count;
+                } else {
+                }
+            }
+        }
+    }
+    Ok(0)
+}
 #[cfg(test)]
 mod tests {
 
