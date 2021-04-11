@@ -5,9 +5,9 @@ use ans_flex::compress;
 use ans_flex::decompress;
 use ans_flex::table::fse_optimal_table_log;
 use ans_flex::FSE_DEFAULT_TABLELOG;
-use hist::count_simple;
-use hist::get_max_symbol_value;
-use hist::get_normalized_counts;
+use common::count_simple;
+use common::get_max_symbol_value;
+use common::get_normalized_counts;
 use hufflpuff::table::build_table;
 
 const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");

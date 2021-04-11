@@ -1,6 +1,6 @@
 use crate::*;
 use bitstream::highbit_pos;
-use hist::NormCountsTable;
+use common::NormCountsTable;
 use log::log_enabled;
 use log::Level::{Debug, Trace};
 use log::*;

@@ -3,9 +3,10 @@ use crate::HUF_TABLELOG_MAX;
 use bitstream::BitCstream;
 use bitstream::BitDStreamReverse;
 use bitstream::NUM_BITS_IN_BIT_CONTAINER;
+use common::NormCountsTable;
 
 /// compress input to dst in reverse order
-fn compress_1x_rev(table: &[MinNode], input: &[u8], dst: &mut [u8]) {
+pub fn compress_1x_rev(table: &[MinNode], input: &[u8], dst: &mut [u8]) {
     let mut bit_c = BitCstream::new();
 
     let mut index = input.len();

@@ -1,3 +1,5 @@
+mod error;
+use error::HistError;
 use log::log_enabled;
 use log::Level::Trace;
 use log::*;
@@ -255,6 +257,158 @@ pub fn count_blocked_unsafe(input: &[u8]) -> Vec<u32> {
 
     counts.resize(256, 0);
     counts
+}
+
+pub const FSE_MIN_TABLELOG: u32 = 5;
+pub const FSE_NCOUNTBOUND: u32 = 512;
+
+pub const FSE_DEFAULT_MEMORY_USAGE: u32 = 13;
+pub const FSE_MAX_MEMORY_USAGE: u32 = 14; // 16kb
+pub const FSE_DEFAULT_TABLELOG: u32 = FSE_DEFAULT_MEMORY_USAGE - 2;
+
+pub const FSE_TABLELOG_ABSOLUTE_MAX: u32 = 15;
+pub const FSE_MAX_TABLELOG: u32 = FSE_MAX_MEMORY_USAGE - 2;
+pub const FSE_MAX_TABLESIZE: usize = 1 << FSE_MAX_TABLELOG;
+pub const FSE_MAXTABLESIZE_MASK: usize = FSE_MAX_TABLESIZE - 1;
+pub const FSE_MAX_SYMBOL_VALUE: u32 = u8::MAX as u32;
+
+pub const HIST_WKSP_SIZE_U32: usize = 1024;
+pub const HIST_WKSP_SIZE: usize = HIST_WKSP_SIZE_U32 * core::mem::size_of::<usize>();
+
+pub fn FSE_NCountWriteBound(max_symbol_value: u32, table_log: u32) -> u32 {
+    let max_header_size = (((max_symbol_value +1) * table_log) >> 3) + 3;
+    if max_symbol_value == 0 {
+        FSE_NCOUNTBOUND
+    }else{
+        max_header_size
+    }
+}
+
+/// write count metadata into header which is used by FSE and hufmann
+pub fn FSE_write_N_Count(
+    mut out: &mut [u8],
+    norm_counts: &NormCountsTable,
+    max_symbol_value: u32,
+    table_log: u32,
+) -> Result<usize, HistError> {
+    if table_log > FSE_MAX_TABLELOG {
+        return Err(HistError::TableLogTooLarge);
+    }
+
+    if table_log < FSE_MIN_TABLELOG {
+        return Err(HistError::TableLogTooSmall);
+    }
+    if out.len() < FSE_NCountWriteBound(max_symbol_value, table_log) as usize {
+        FSE_write_N_Count_generic(out, norm_counts, max_symbol_value, table_log, false)
+    }else{
+        FSE_write_N_Count_generic(out, norm_counts, max_symbol_value, table_log, true)
+    }
+
+}
+
+/// write count metadata into header which is used by FSE and hufmann
+pub fn FSE_write_N_Count_generic(
+    mut out: &mut [u8],
+    norm_counts: &NormCountsTable,
+    max_symbol_value: u32,
+    table_log: u32,
+    write_is_safe: bool,
+) -> Result<usize, HistError> {
+    let out_len = out.len();
+    let table_size = 1 << table_log;
+    let mut nb_bits = table_log + 1;
+    let mut remaining: i32 = table_log as i32 + 1;
+    let mut threshold = table_size;
+
+    let mut bit_count = 4;
+
+    let mut bit_stream: u32 = table_log - FSE_MIN_TABLELOG;
+    bit_count += 4;
+
+    let mut previous_is0 = false;
+
+    let mut symbol: u32 = 0;
+    let alphabet_size = max_symbol_value + 1;
+    while symbol < alphabet_size && remaining > 1 {
+        if previous_is0 {
+            let mut start = symbol;
+            while symbol < alphabet_size && norm_counts[symbol as usize] == 0 {
+                symbol += 1;
+            }
+            if symbol == alphabet_size {
+                break; // incorrect distribution
+            }
+            while symbol >= start + 24 {
+                start += 24;
+                bit_stream += 0xFFFF << bit_count;
+                if !write_is_safe && out.len() < 2 {
+                    return Err(HistError::OutputTooSmall);
+                }
+                out[0] = bit_stream as u8;
+                out[1] = (bit_stream >> 8) as u8;
+                out = &mut out[2..];
+                bit_stream >>= 16;
+            }
+            while symbol >= start + 3 {
+                start += 3;
+                bit_stream += 3 << bit_count;
+                bit_count += 2;
+            }
+            bit_stream += (symbol - start) << bit_count;
+            bit_count += 2;
+            if bit_count > 16 {
+                if !write_is_safe && out.len() < 2 {
+                    return Err(HistError::OutputTooSmall);
+                }
+                out[0] = bit_stream as u8;
+                out[1] = (bit_stream >> 8) as u8;
+                out = &mut out[2..];
+                bit_stream >>= 16;
+                bit_count -= 16;
+            }
+        }
+        let mut count = norm_counts[symbol as usize] as i32;
+        symbol += 1;
+        let max = (2 * threshold - 1) - remaining;
+        remaining -= count.abs() as i32;
+        count += 1;
+        if count > threshold {
+            count += max;
+        }
+        bit_stream += (count as u32) << bit_count;
+        bit_count += nb_bits;
+        if count < max {
+            bit_count -= 1;
+        }
+        previous_is0 = count == 1;
+        if remaining < 1 {
+            return Err(HistError::UnexpectedRemaining);
+        }
+        while remaining < threshold {
+            nb_bits -= 1;
+            threshold >>= 1;
+        }
+
+        if bit_count > 16 {
+            if !write_is_safe && out.len() < 2 {
+                return Err(HistError::OutputTooSmall);
+            }
+            out[0] = bit_stream as u8;
+            out[1] = (bit_stream >> 8) as u8;
+            out = &mut out[2..];
+            bit_stream >>= 16;
+            bit_count -= 16;
+        }
+    }
+    assert!(symbol <= alphabet_size);
+    if !write_is_safe && out.len() < 2 {
+        return Err(HistError::OutputTooSmall);
+    }
+    out[0] = bit_stream as u8;
+    out[1] = (bit_stream >> 8) as u8;
+    out = &mut out[bit_count as usize + 7 / 8..];
+    let bytes_written = out_len - out.len();
+    Ok(bytes_written)
 }
 
 #[cfg(test)]

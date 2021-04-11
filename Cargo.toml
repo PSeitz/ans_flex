@@ -9,8 +9,8 @@ log = "0.4.13"
 
 [dependencies.bitstream]
 path = "bitstream"
-[dependencies.hist]
-path = "hist"
+[dependencies.common]
+path = "common"
 
 [dependencies.hufflpuff]
 path = "hufflpuff"
@@ -38,6 +38,6 @@ opt-level = 3
 members = [
     ".",
     "hufflpuff",
-    "hist",
+    "common",
     "bitstream",
 ]

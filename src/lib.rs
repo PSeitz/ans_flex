@@ -24,11 +24,11 @@ use crate::compress::fse_compress;
 use crate::table::build_compression_table;
 use crate::table::fse_optimal_table_log;
 use bitstream::BitCstreamOwned;
-use hist::count_simple;
-use hist::get_max_symbol_value;
-use hist::get_normalized_counts;
-use hist::CountsTable;
-use hist::NormCountsTable;
+use common::count_simple;
+use common::get_max_symbol_value;
+use common::get_normalized_counts;
+use common::CountsTable;
+use common::NormCountsTable;
 
 pub mod compress;
 pub mod decompress;
@@ -128,7 +128,7 @@ pub fn fse_decompress(
 #[cfg(test)]
 mod tests {
 
-    use hist::count_simple;
+    use common::count_simple;
     use std::sync::Once;
 
     static INIT: Once = Once::new();

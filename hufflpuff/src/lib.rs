@@ -130,36 +130,44 @@ pub fn get_max_value(counts: &[usize; 256]) -> usize {
 #[cfg(test)]
 mod tests {
 
+    use crate::compress::compress_1x_rev;
     use crate::tree::build_tree::test_prefix_property;
     use crate::tree::build_tree::tree_to_table;
     use crate::tree::build_tree_fast;
     use crate::*;
     use std::collections::HashSet;
 
-    // #[test]
-    // fn test_example() {
-    //     let all_bytes: Vec<u8> = vec![
-    //         0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,4,5
-    //     ];
+    #[test]
+    fn test_example() {
+        let all_bytes: Vec<u8> = vec![
+            // 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,4,5,6
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 4, 5,
+        ];
 
-    //     use std::io::Write;
-    //     std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
-    //         .unwrap()
-    //         .write_all(&all_bytes)
-    //         .unwrap();
+        use std::io::Write;
+        std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
+            .unwrap()
+            .write_all(&all_bytes)
+            .unwrap();
 
-    //     let mut test_data = vec![];
-    //     use std::io::Read;
-    //     std::fs::File::open("../../FiniteStateEntropy/programs/test_data_100")
-    //         .unwrap()
-    //         .read_to_end(&mut test_data)
-    //         .unwrap();
+        let mut test_data = vec![];
+        use std::io::Read;
+        std::fs::File::open("../../FiniteStateEntropy/programs/test_data_100")
+            .unwrap()
+            .read_to_end(&mut test_data)
+            .unwrap();
 
-    //     let counts = count_simple(&test_data);
-    //     let _tree = build_tree_fast(&counts);
+        let counts = count_simple(&test_data);
+        let tree = build_tree_fast(&counts);
 
-    //     // println!("{}", tree);
-    // }
+        let table = tree_to_table(&tree);
+        let mut out = vec![];
+        out.resize(tree.estimate_compressed_size() + 16, 0);
+        compress_1x_rev(&table, &test_data, &mut out);
+
+        // compress_1x_rev(table: &[MinNode], input: &[u8], dst: &mut [u8]) {
+        println!("{}", tree);
+    }
     #[test]
     fn special_case() {
         let src: Vec<u8> = vec![

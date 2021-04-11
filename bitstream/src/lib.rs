@@ -304,8 +304,8 @@ impl BitCstream {
         debug_assert!(value >> nb_bits == 0);
         debug_assert!(nb_bits + self.bit_pos < NUM_BITS_IN_BIT_CONTAINER);
 
-        println!("value {:?}", value);
-        println!("nb_bits {:?}", nb_bits);
+        //println!("value {:?}", value);
+        //println!("nb_bits {:?}", nb_bits);
 
         self.bit_container |= value << self.bit_pos;
         self.bit_pos += nb_bits;

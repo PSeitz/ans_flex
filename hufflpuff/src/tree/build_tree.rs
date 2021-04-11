@@ -155,7 +155,8 @@ pub fn tree_to_table(tree: &Tree) -> [MinNode; 256] {
         node_values_per_depth[depth] = min;
         min += num_nodes_per_depth[depth] as u16;
         // shift out one bit
-        // not completely sure where it comes from. maybe the differentiator bit to move to the next depth (depth == num bits)?
+        // not completely sure where it comes from. maybe the differentiator bit to move
+        // to the next depth (depth == num bits)?
         min >>= 1;
     }
 

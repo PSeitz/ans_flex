@@ -16,8 +16,8 @@ dot = { git = "https://github.com/PSeitz/dot", branch = "main" }
 [dependencies.bitstream]
 path = "../bitstream"
 
-[dependencies.hist]
-path = "../hist"
+[dependencies.common]
+path = "../common"
 
 
 [[bench]]
