@@ -1,10 +1,12 @@
 mod error;
+mod table;
 use std::convert::TryInto;
 
 use error::HistError;
 use log::log_enabled;
 use log::Level::Trace;
 use log::*;
+pub use table::fse_optimal_table_log;
 
 // use crate::table::fse_min_table_log;
 
@@ -125,6 +127,15 @@ pub fn count_simple(input: &[u8]) -> CountsTable {
         counts[*byte as usize] = counts[*byte as usize].saturating_add(1);
     }
     counts
+}
+
+pub fn get_normalized_counts_from_data(data: &[u8]) -> (NormCountsTable, u32, u32) {
+    let counts = count_simple(data);
+    let max_symbol_value = get_max_symbol_value(&counts);
+    let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, data.len(), max_symbol_value);
+
+    let norm_counts = get_normalized_counts(&counts, table_log, data.len(), max_symbol_value);
+    (norm_counts, max_symbol_value, table_log)
 }
 
 /// creates a table with the counts of each symbol
@@ -277,7 +288,7 @@ pub const FSE_MAX_SYMBOL_VALUE: u32 = u8::MAX as u32;
 pub const HIST_WKSP_SIZE_U32: usize = 1024;
 pub const HIST_WKSP_SIZE: usize = HIST_WKSP_SIZE_U32 * core::mem::size_of::<usize>();
 
-pub fn FSE_NCountWriteBound(max_symbol_value: u32, table_log: u32) -> u32 {
+pub fn fse_NCountWriteBound(max_symbol_value: u32, table_log: u32) -> u32 {
     let max_header_size = (((max_symbol_value + 1) * table_log) >> 3) + 3;
     if max_symbol_value == 0 {
         FSE_NCOUNTBOUND
@@ -288,7 +299,7 @@ pub fn FSE_NCountWriteBound(max_symbol_value: u32, table_log: u32) -> u32 {
 
 /// write count metadata into header which is used by FSE and hufmann
 pub fn FSE_write_N_Count(
-    mut out: &mut [u8],
+    out: &mut [u8],
     norm_counts: &NormCountsTable,
     max_symbol_value: u32,
     table_log: u32,
@@ -300,15 +311,15 @@ pub fn FSE_write_N_Count(
     if table_log < FSE_MIN_TABLELOG {
         return Err(HistError::TableLogTooSmall);
     }
-    if out.len() < FSE_NCountWriteBound(max_symbol_value, table_log) as usize {
-        FSE_write_N_Count_generic(out, norm_counts, max_symbol_value, table_log, false)
+    if out.len() < fse_NCountWriteBound(max_symbol_value, table_log) as usize {
+        fse_write_n_count_generic(out, norm_counts, max_symbol_value, table_log, false)
     } else {
-        FSE_write_N_Count_generic(out, norm_counts, max_symbol_value, table_log, true)
+        fse_write_n_count_generic(out, norm_counts, max_symbol_value, table_log, true)
     }
 }
 
 /// write count metadata into header which is used by FSE and hufmann
-pub fn FSE_write_N_Count_generic(
+pub fn fse_write_n_count_generic(
     mut out: &mut [u8],
     norm_counts: &NormCountsTable,
     max_symbol_value: u32,
@@ -317,14 +328,12 @@ pub fn FSE_write_N_Count_generic(
 ) -> Result<usize, HistError> {
     let out_len = out.len();
     let table_size = 1 << table_log;
-    let mut nb_bits = table_log + 1;
-    let mut remaining: i32 = table_log as i32 + 1;
+    let mut nb_bits = table_log + 1; // + 1 for extra accuracy
+    let mut remaining: i32 = table_size as i32 + 1;
     let mut threshold = table_size;
 
-    let mut bit_count = 4;
-
     let mut bit_stream: u32 = table_log - FSE_MIN_TABLELOG;
-    bit_count += 4;
+    let mut bit_count = 4;
 
     let mut previous_is0 = false;
 
@@ -373,7 +382,7 @@ pub fn FSE_write_N_Count_generic(
         let max = (2 * threshold - 1) - remaining;
         remaining -= count.abs() as i32;
         count += 1;
-        if count > threshold {
+        if count >= threshold {
             count += max;
         }
         bit_stream += (count as u32) << bit_count;
@@ -402,27 +411,31 @@ pub fn FSE_write_N_Count_generic(
         }
     }
     assert!(symbol <= alphabet_size);
+    if remaining != 1 {
+        return Err(HistError::IncorrectNormalizedDistribution);
+    }
     if !write_is_safe && out.len() < 2 {
         return Err(HistError::OutputTooSmall);
     }
     out[0] = bit_stream as u8;
     out[1] = (bit_stream >> 8) as u8;
-    out = &mut out[bit_count as usize + 7 / 8..];
+    out = &mut out[(bit_count as usize + 7) / 8..];
     let bytes_written = out_len - out.len();
     Ok(bytes_written)
 }
 
 /// write count metadata into header which is used by FSE and hufmann
-pub fn FSE_read_N_Count(
+pub fn fse_read_n_count(
     mut data: &[u8],
     norm_counts: &mut NormCountsTable,
     max_symbol_value: &mut u32,
     table_log: &mut u32,
 ) -> Result<usize, HistError> {
+    let data_len = data.len();
     if data.len() < 4 {
         let mut buffer = [0, 0, 0, 0];
         buffer[..data.len()].copy_from_slice(&data);
-        return FSE_read_N_Count(data, norm_counts, max_symbol_value, table_log);
+        return fse_read_n_count(data, norm_counts, max_symbol_value, table_log);
     }
 
     let mut bit_stream = u32::from_le_bytes(data[..4].try_into().unwrap());
@@ -431,10 +444,10 @@ pub fn FSE_read_N_Count(
         return Err(HistError::TableLogTooLarge);
     }
     bit_stream >>= 4;
-    let bit_count = 4;
+    let mut bit_count: i32 = 4;
     *table_log = nb_bits;
-    let remaining = (1 << nb_bits) + 1;
-    let threshold = 1 << nb_bits;
+    let mut remaining = (1 << nb_bits) + 1;
+    let mut threshold: i32 = 1 << nb_bits;
     nb_bits += 1;
 
     let mut previous_is0 = false;
@@ -447,15 +460,80 @@ pub fn FSE_read_N_Count(
                 n0 += 24;
                 if data.len() > 5 {
                     data = &data[2..];
-                    let mut bit_stream =
-                        u32::from_le_bytes(data[..4].try_into().unwrap()) >> bit_count;
+                    bit_stream = u32::from_le_bytes(data[..4].try_into().unwrap()) >> bit_count;
                 } else {
+                    bit_stream >>= 16;
+                    bit_count += 16;
                 }
             }
+            while (bit_stream & 3) == 3 {
+                n0 += 3;
+                bit_stream >>= 2;
+                bit_count += 2;
+            }
+            n0 += bit_stream & 3;
+            bit_count += 2;
+            if n0 > *max_symbol_value {
+                return Err(HistError::MaxSymbolValueTooSmall);
+            }
+            while charnum < n0 {
+                norm_counts[charnum as usize] = 0;
+                charnum += 1;
+            }
+            if data.len() >= 7 || data.len() - (bit_count as usize >> 3) >= 4 {
+                assert!(bit_count >> 3 <= 3);
+                data = &data[bit_count as usize >> 3..];
+                bit_count &= 7;
+                bit_stream = u32::from_le_bytes(data[..4].try_into().unwrap()) >> bit_count;
+            } else {
+                bit_stream >>= 2;
+            }
         }
+        let max = (2 * threshold - 1) - remaining;
+        let mut count = if (bit_stream as i32 & (threshold - 1)) < max {
+            bit_count += nb_bits as i32 - 1;
+            bit_stream as i32 & (threshold - 1)
+        } else {
+            let mut count = bit_stream as i32 & (2 * threshold - 1);
+            if count >= threshold {
+                count -= max;
+            }
+            bit_count += nb_bits as i32;
+            count
+        };
+        count -= 1; // extra accuracy
+        remaining -= count.abs(); // abs to convert -1 special case to +1
+        norm_counts[charnum as usize] = count as i16;
+        charnum += 1;
+        previous_is0 = count == 0;
+        while remaining < threshold {
+            nb_bits -= 1;
+            threshold >>= 1;
+        }
+        if data.len() >= 7 || data.len() - (bit_count as usize >> 3) >= 4 {
+            data = &data[bit_count as usize >> 3..];
+            bit_count &= 7;
+        } else {
+            bit_count -= (8 * data.len() - 4) as i32;
+            data = &data[..data.len() - 4]; // could be an issue if data has less than 4 left?
+        }
+        bit_stream = u32::from_le_bytes(data[..4].try_into().unwrap()) >> (bit_count & 31);
     }
-    Ok(0)
+    if remaining != 1 {
+        return Err(HistError::CorruptionDetected(
+            "remaining is not 1, but ".to_string() + &remaining.to_string(),
+        ));
+    }
+    if bit_count > 32 {
+        return Err(HistError::CorruptionDetected("bit_count > 32".to_string()));
+    }
+    *max_symbol_value = charnum - 1;
+
+    data = &data[(bit_count as usize + 7) >> 3..]; // could be an issue if data has less than 4 left?
+    let bytes_read = data_len - data.len();
+    Ok(bytes_read)
 }
+
 #[cfg(test)]
 mod tests {
 
@@ -463,6 +541,7 @@ mod tests {
     use super::count_multi;
     use super::count_simple;
     use super::get_normalized_counts;
+    use super::*;
 
     const A_BYTE: u8 = "a".as_bytes()[0];
     const B_BYTE: u8 = "b".as_bytes()[0];
@@ -485,6 +564,50 @@ mod tests {
             .unwrap(); // 20% prob
 
         buffer
+    }
+    #[test]
+    fn write_n_bound_test() -> Result<(), HistError> {
+        let test_data: &[u8] = &[
+            3_u8, 4, 4, 6, 50, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52, 52,
+        ];
+        use std::io::Write;
+        std::fs::File::create("../../FiniteStateEntropy/programs/test_data_100")
+            .unwrap()
+            .write_all(test_data)
+            .unwrap();
+
+        //let mut test_data = vec![];
+        //use std::io::Read;
+        //std::fs::File::open("../../FiniteStateEntropy/programs/test_data_100")
+        //.unwrap()
+        //.read_to_end(&mut test_data)
+        //.unwrap();
+        let (norm_counts, mut max_symbol_value, table_log) =
+            get_normalized_counts_from_data(&test_data);
+        let mut out = vec![];
+        out.resize(
+            fse_NCountWriteBound(max_symbol_value, table_log) as usize,
+            0,
+        );
+        let bytes_written = FSE_write_N_Count(
+            out.as_mut_slice(),
+            &norm_counts,
+            max_symbol_value,
+            table_log,
+        )?;
+        dbg!(bytes_written);
+        dbg!(&out[..bytes_written]);
+        let mut table_log_restored = FSE_DEFAULT_TABLELOG;
+        let mut norm_counts_restored = [0_i16; 256];
+        let max_symbol_value_restored = FSE_MAX_SYMBOL_VALUE;
+        fse_read_n_count(
+            &out,
+            &mut norm_counts_restored,
+            &mut max_symbol_value,
+            &mut table_log_restored,
+        )?;
+        assert_eq!(norm_counts, norm_counts_restored);
+        Ok(())
     }
 
     #[test]

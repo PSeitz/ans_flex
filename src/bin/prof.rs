@@ -1,6 +1,6 @@
 use ans_flex::compress;
 use ans_flex::decompress;
-use ans_flex::table::fse_optimal_table_log;
+use common::fse_optimal_table_log;
 use ans_flex::FSE_DEFAULT_TABLELOG;
 use common::count_simple;
 use common::get_max_symbol_value;

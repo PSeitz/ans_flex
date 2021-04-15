@@ -22,9 +22,8 @@ use crate::table::DecompressionTable;
 
 use crate::compress::fse_compress;
 use crate::table::build_compression_table;
-use crate::table::fse_optimal_table_log;
 use bitstream::BitCstreamOwned;
-use common::count_simple;
+use common::{count_simple, fse_optimal_table_log};
 use common::get_max_symbol_value;
 use common::get_normalized_counts;
 use common::CountsTable;

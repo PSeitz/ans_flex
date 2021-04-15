@@ -10,4 +10,10 @@ pub enum HistError {
     TableLogTooLarge,
     #[error("tablelog too small")]
     TableLogTooSmall,
+    #[error("max symbol value")]
+    MaxSymbolValueTooSmall,
+    #[error("corruption detected: `{0}`")]
+    CorruptionDetected(String),
+    #[error("Incorrect normalized distribution")]
+    IncorrectNormalizedDistribution,
 }
