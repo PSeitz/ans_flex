@@ -9,7 +9,7 @@ struct FseDState {
 
 impl FseDState {
     fn new(bit_stream: &mut BitDStreamReverse, table_log: u32, input: &[u8]) -> Self {
-        let state = bit_stream.read_bits(table_log as u32);
+        let state = bit_stream.read_bits(table_log);
         bit_stream.reload_stream(input);
         // DStatePtr->table = dt + 1;  TODO?
         FseDState { state }
@@ -117,7 +117,7 @@ fn internal_fse_decode_symbol_fast(
     // println!("oldstate {:?} d_info.new_state {:?} low_bits {:?} --> new state {:?}", d_state.state, d_info.new_state, low_bits, d_info.new_state as usize + low_bits);
     d_state.state = d_info.new_state as usize + low_bits;
 
-    return d_info.symbol;
+    d_info.symbol
 }
 
 #[inline]
@@ -132,5 +132,5 @@ fn internal_fse_decode_symbol(
     let low_bits = bit_d.read_bits(d_info.nb_bits as u32);
     // println!("oldstate {:?} d_info.new_state {:?} low_bits {:?} : symbol {:?}  --> new state {:?}", d_state.state, d_info.new_state, low_bits, d_info.symbol, d_info.new_state as usize + low_bits);
     d_state.state = d_info.new_state as usize + low_bits;
-    return d_info.symbol;
+    d_info.symbol
 }

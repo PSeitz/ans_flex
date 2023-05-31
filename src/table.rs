@@ -24,7 +24,7 @@ impl FseSymbolCompressionTransform {
     /// note 1 : assume symbolValue is valid (<= maxSymbolValue)
     /// note 2 : if freq[symbolValue]==0, @return a fake cost of tableLog+1 bits */
     pub fn fse_get_max_nb_bits(&self) -> u32 {
-        self.delta_nb_bits + ((1 << 16) - 1) >> 16
+        (self.delta_nb_bits + ((1 << 16) - 1)) >> 16
     }
 
     /// Approximate symbol cost, as fractional value, using fixed-point format (accuracy_log fractional bits)
@@ -45,7 +45,7 @@ impl FseSymbolCompressionTransform {
         let bit_multiplier: u32 = 1 << accuracy_log;
         assert!(self.delta_nb_bits + table_size <= threshold);
         assert!(normalized_delta_from_threshold <= bit_multiplier);
-        return (min_nb_bits + 1) * bit_multiplier - normalized_delta_from_threshold;
+        (min_nb_bits + 1) * bit_multiplier - normalized_delta_from_threshold
     }
 }
 
@@ -161,12 +161,12 @@ pub fn build_compression_table(
     {
         let mut total = 0_i32;
         for symbol in 0..=max_symbol_value as usize {
-            let norm_count = norm_counts[symbol as usize];
+            let norm_count = norm_counts[symbol];
             match norm_count {
                 0 => {
                     if log_enabled!(Debug) {
                         // For compatibility with fse_get_max_nb_bits()
-                        symbol_tt[symbol as usize].delta_nb_bits =
+                        symbol_tt[symbol].delta_nb_bits =
                             ((table_log + 1) << 16) - (1 << table_log)
                     }
                 }

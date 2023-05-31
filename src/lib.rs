@@ -64,8 +64,8 @@ struct Counts {
 pub fn get_ans_table_size(mut table_log: u32, max_symbol_value: u32) -> u32 {
     table_log = table_log.min(FSE_TABLELOG_ABSOLUTE_MAX);
 
-    let size = 1 + (1 << (table_log - 1)) + ((max_symbol_value + 1) * 2);
-    size
+    
+    1 + (1 << (table_log - 1)) + ((max_symbol_value + 1) * 2)
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn test_get_ans_table_size() {
 }
 
 pub fn compress(input: &[u8]) -> BitCstreamOwned {
-    let counts = count_simple(&input);
+    let counts = count_simple(input);
     let max_count = *counts.iter().max().unwrap() as usize;
     if max_count == input.len() {
         panic!("use rle");
@@ -95,8 +95,8 @@ pub fn compress(input: &[u8]) -> BitCstreamOwned {
     let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
     let comp_tables = build_compression_table(&norm_counts, table_log, max_symbol_value);
 
-    let out = fse_compress(&input, &comp_tables, table_log);
-    out
+    
+    fse_compress(input, &comp_tables, table_log)
 }
 
 pub fn decompress(
@@ -111,7 +111,7 @@ pub fn decompress(
 
     let decomp_table = build_decompression_table(norm_counts, table_log, max_symbol_value);
 
-    fse_decompress(&mut output, &compressed, &decomp_table, table_log);
+    fse_decompress(&mut output, compressed, &decomp_table, table_log);
     output
 }
 
@@ -121,7 +121,7 @@ pub fn fse_decompress(
     table: &DecompressionTable,
     table_log: u32,
 ) {
-    other_fse_decompress(output, &input, &table, table_log)
+    other_fse_decompress(output, input, table, table_log)
 }
 
 #[cfg(test)]
@@ -224,49 +224,49 @@ mod tests {
     #[test]
     fn test_66k_json() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_66k_JSON.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../test_data/compression_66k_JSON.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_65k_text() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_65k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../test_data/compression_65k.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_34k_text() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_34k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../test_data/compression_34k.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_1k_text() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/compression_1k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../test_data/compression_1k.txt");
         inverse(TEST_DATA);
     }
 
     #[test]
     fn test_v4_uuids_19_k() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/v4_uuids_19k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../test_data/v4_uuids_19k.txt");
         inverse(TEST_DATA);
     }
     #[test]
     fn test_v4_uuids_93_k() {
         setup();
-        const TEST_DATA: &'static [u8] = include_bytes!("../test_data/v4_uuids_93k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../test_data/v4_uuids_93k.txt");
         inverse(TEST_DATA);
     }
 
     fn inverse(test_data: &[u8]) {
         setup();
-        let out = compress(&test_data);
+        let out = compress(test_data);
         // dbg!(&out.get_compressed_data().len());
         // dbg!(out.bit_pos);
         // dbg!(out.bit_container);
 
-        let counts = count_simple(&test_data);
+        let counts = count_simple(test_data);
         let max_symbol_value = get_max_symbol_value(&counts);
         let table_log =
             fse_optimal_table_log(FSE_DEFAULT_TABLELOG, test_data.len(), max_symbol_value);
@@ -274,7 +274,7 @@ mod tests {
             get_normalized_counts(&counts, table_log, test_data.len(), max_symbol_value);
 
         let decompressed = decompress(
-            &out.get_compressed_data(),
+            out.get_compressed_data(),
             &norm_counts,
             table_log,
             test_data.len(),

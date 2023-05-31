@@ -11,12 +11,12 @@ use common::get_normalized_counts;
 use hufflpuff::build_tree_fast;
 use hufflpuff::count_simple as huff_cnt_simple;
 
-const COMPRESSION1K: &'static [u8] = include_bytes!("../test_data/compression_1k.txt");
-const COMPRESSION34K: &'static [u8] = include_bytes!("../test_data/compression_34k.txt");
-const COMPRESSION65K: &'static [u8] = include_bytes!("../test_data/compression_65k.txt");
-const COMPRESSION66K: &'static [u8] = include_bytes!("../test_data/compression_66k_JSON.txt");
-const COMPRESSION19K: &'static [u8] = include_bytes!("../test_data/v4_uuids_19k.txt");
-const COMPRESSION93K: &'static [u8] = include_bytes!("../test_data/v4_uuids_93k.txt");
+const COMPRESSION1K: &[u8] = include_bytes!("../test_data/compression_1k.txt");
+const COMPRESSION34K: &[u8] = include_bytes!("../test_data/compression_34k.txt");
+const COMPRESSION65K: &[u8] = include_bytes!("../test_data/compression_65k.txt");
+const COMPRESSION66K: &[u8] = include_bytes!("../test_data/compression_66k_JSON.txt");
+const COMPRESSION19K: &[u8] = include_bytes!("../test_data/v4_uuids_19k.txt");
+const COMPRESSION93K: &[u8] = include_bytes!("../test_data/v4_uuids_93k.txt");
 // const COMPRESSION95K_VERY_GOOD_LOGO: &'static [u8] = include_bytes!("logo.jpg");
 
 const ALL: &[&[u8]] = &[
@@ -71,7 +71,7 @@ fn compression(c: &mut Criterion) {
             &input,
             |b, i| {
                 b.iter(|| {
-                    let counts = huff_cnt_simple(&i);
+                    let counts = huff_cnt_simple(i);
                     build_tree_fast(&counts)
                 });
             },
@@ -91,17 +91,17 @@ fn decompression(c: &mut Criterion) {
             &out.get_compressed_data(),
             |b, i| {
                 b.iter(|| {
-                    let counts = count_simple(&input);
+                    let counts = count_simple(input);
                     let max_symbol_value = get_max_symbol_value(&counts);
                     let table_log =
                         fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
                     let norm_counts =
                         get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
-                    decompress(&i, &norm_counts, table_log, input.len(), max_symbol_value)
+                    decompress(i, &norm_counts, table_log, input.len(), max_symbol_value)
                 });
             },
         );
-        let counts = count_simple(&input);
+        let counts = count_simple(input);
         let max_symbol_value = get_max_symbol_value(&counts);
         let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, input.len(), max_symbol_value);
         let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
@@ -109,7 +109,7 @@ fn decompression(c: &mut Criterion) {
             BenchmarkId::new("ans_flex_reuse", input_bytes),
             &out.get_compressed_data(),
             |b, i| {
-                b.iter(|| decompress(&i, &norm_counts, table_log, input.len(), max_symbol_value));
+                b.iter(|| decompress(i, &norm_counts, table_log, input.len(), max_symbol_value));
             },
         );
     }

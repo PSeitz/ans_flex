@@ -56,18 +56,18 @@ pub fn fse_compress<'a>(input: &[u8], comp: &CompressionTable, table_log: u32) -
 
         let (mut state1, mut state2) = if input.len() & 1 == 1 {
             index -= 1;
-            let mut state1 = FseCState::new(input[index], &comp);
+            let mut state1 = FseCState::new(input[index], comp);
             index -= 1;
-            let state2 = FseCState::new(input[index], &comp);
+            let state2 = FseCState::new(input[index], comp);
             index -= 1;
             fse_encode_symbol(&mut bit_c, &mut state1, comp, input[index]);
             bit_c.flush_bits_fast(&mut data);
             (state1, state2)
         } else {
             index -= 1;
-            let state2 = FseCState::new(input[index], &comp);
+            let state2 = FseCState::new(input[index], comp);
             index -= 1;
-            let state1 = FseCState::new(input[index], &comp);
+            let state1 = FseCState::new(input[index], comp);
             (state1, state2)
         };
 
