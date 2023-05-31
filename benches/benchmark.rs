@@ -3,19 +3,20 @@ extern crate criterion;
 use self::criterion::*;
 use ans_flex::compress;
 use ans_flex::decompress;
-use ans_flex::table::fse_optimal_table_log;
 use ans_flex::FSE_DEFAULT_TABLELOG;
 use common::count_simple;
+use common::fse_optimal_table_log;
 use common::get_max_symbol_value;
 use common::get_normalized_counts;
-use hufflpuff::table::build_table;
+use hufflpuff::build_tree_fast;
+use hufflpuff::count_simple as huff_cnt_simple;
 
-const COMPRESSION1K: &'static [u8] = include_bytes!("compression_1k.txt");
-const COMPRESSION34K: &'static [u8] = include_bytes!("compression_34k.txt");
-const COMPRESSION65K: &'static [u8] = include_bytes!("compression_65k.txt");
-const COMPRESSION66K: &'static [u8] = include_bytes!("compression_66k_JSON.txt");
-const COMPRESSION19K: &'static [u8] = include_bytes!("v4_uuids_19k.txt");
-const COMPRESSION93K: &'static [u8] = include_bytes!("v4_uuids_93k.txt");
+const COMPRESSION1K: &'static [u8] = include_bytes!("../test_data/compression_1k.txt");
+const COMPRESSION34K: &'static [u8] = include_bytes!("../test_data/compression_34k.txt");
+const COMPRESSION65K: &'static [u8] = include_bytes!("../test_data/compression_65k.txt");
+const COMPRESSION66K: &'static [u8] = include_bytes!("../test_data/compression_66k_JSON.txt");
+const COMPRESSION19K: &'static [u8] = include_bytes!("../test_data/v4_uuids_19k.txt");
+const COMPRESSION93K: &'static [u8] = include_bytes!("../test_data/v4_uuids_93k.txt");
 // const COMPRESSION95K_VERY_GOOD_LOGO: &'static [u8] = include_bytes!("logo.jpg");
 
 const ALL: &[&[u8]] = &[
@@ -66,12 +67,12 @@ fn compression(c: &mut Criterion) {
             b.iter(|| compress(i));
         });
         group.bench_with_input(
-            BenchmarkId::new("build_table huffl", input_bytes),
+            BenchmarkId::new("build_tree_fast huffl", input_bytes),
             &input,
             |b, i| {
                 b.iter(|| {
-                    let counts = count_simple(&i);
-                    build_table(&counts, 255, 0)
+                    let counts = huff_cnt_simple(&i);
+                    build_tree_fast(&counts)
                 });
             },
         );

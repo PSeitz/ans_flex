@@ -358,7 +358,7 @@ impl BitCstream {
         self.add_bits_fast(1, 1);
         // dbg!(self.bit_pos);
         let padding = 8 - self.bit_pos;
-        dbg!(padding);
+        //dbg!(padding);
         self.flush_bits_fast(data);
     }
 }

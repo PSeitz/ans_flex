@@ -1,8 +1,8 @@
 use ans_flex::compress;
 use ans_flex::decompress;
-use common::fse_optimal_table_log;
 use ans_flex::FSE_DEFAULT_TABLELOG;
 use common::count_simple;
+use common::fse_optimal_table_log;
 use common::get_max_symbol_value;
 use common::get_normalized_counts;
 
@@ -24,6 +24,9 @@ fn main() {
     let mut len = 0;
     // let yo = compress(COMPRESSION66K);
     let counts = count_simple(&test_data);
+    dbg!(counts.iter().filter(|cnt| **cnt == 0).count());
+    dbg!(counts.iter().filter(|cnt| **cnt != 0).count());
+    //dbg!(counts);
     let out = compress(&test_data);
     let max_symbol_value = get_max_symbol_value(&counts);
     let table_log = fse_optimal_table_log(FSE_DEFAULT_TABLELOG, test_data.len(), max_symbol_value);
