@@ -37,7 +37,7 @@ pub fn fse_min_table_log(src_size: usize, max_symbol_value: u32) -> u32 {
 /// see test_highbit_pos
 #[inline]
 pub fn highbit_pos(val: u32) -> u32 {
-    return val.leading_zeros() ^ 31;
+    val.leading_zeros() ^ 31
 }
 
 #[test]
