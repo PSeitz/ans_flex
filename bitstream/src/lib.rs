@@ -21,7 +21,7 @@ const REG_MASK: u32 = NUM_BITS_IN_BIT_CONTAINER - 1;
 /// see test_highbit_pos
 #[inline]
 pub fn highbit_pos(val: u32) -> u32 {
-    return val.leading_zeros() ^ 31;
+    val.leading_zeros() ^ 31
 }
 
 #[test]
@@ -109,7 +109,7 @@ impl BitDStreamReverse {
             let input_pos = 0;
 
             let mut bytes = [0, 0, 0, 0, 0, 0, 0, 0];
-            bytes[..input.len()].copy_from_slice(&input);
+            bytes[..input.len()].copy_from_slice(input);
             let bit_container = usize::from_le_bytes(bytes);
             (input_pos, bit_container)
         };
@@ -151,7 +151,7 @@ impl BitDStreamReverse {
     }
     #[inline]
     pub fn reload_stream(&mut self, input: &[u8]) -> BitDstreamStatus {
-        if self.bits_consumed > NUM_BITS_IN_BIT_CONTAINER as u32 {
+        if self.bits_consumed > NUM_BITS_IN_BIT_CONTAINER {
             return BitDstreamStatus::Overflow;
         }
         if self.input_pos >= self.limit_pos {
@@ -254,7 +254,7 @@ impl BitCstreamOwned {
 /// A critical property of these streams is that they encode and decode in **reverse** direction.
 /// So the first bit sequence you add will be the last to be read, like a LIFO stack.
 ///
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BitCstream {
     pub(crate) bit_container: BitContainer,
     pub bit_pos: u32,
@@ -357,7 +357,7 @@ impl BitCstream {
         // add end mark
         self.add_bits_fast(1, 1);
         // dbg!(self.bit_pos);
-        let padding = 8 - self.bit_pos;
+        let _padding = 8 - self.bit_pos;
         //dbg!(padding);
         self.flush_bits_fast(data);
     }
@@ -394,8 +394,7 @@ mod tests {
 
     #[test]
     fn test_stream_simple() {
-        let mut data: Vec<u8> = Vec::new();
-        data.resize(50, 0);
+        let mut data: Vec<u8> = vec![0; 50];
         let mut c_stream = BitCstream::new();
         c_stream.add_bits_fast(0b101, 3);
         c_stream.flush_bits_fast(&mut data);
@@ -409,8 +408,7 @@ mod tests {
     }
     #[test]
     fn test_stream_show_reverse() {
-        let mut data: Vec<u8> = Vec::new();
-        data.resize(50, 0);
+        let mut data: Vec<u8> = vec![0; 50];
         let mut c_stream = BitCstream::new();
         c_stream.add_bits_fast(0b111, 30);
         c_stream.add_bits_fast(0b101, 30);
@@ -427,8 +425,7 @@ mod tests {
     }
     #[test]
     fn test_stream_reload() {
-        let mut data: Vec<u8> = Vec::new();
-        data.resize(50, 0);
+        let mut data: Vec<u8> = vec![0; 50];
         let mut c_stream = BitCstream::new();
         c_stream.add_bits_fast(0b111, 30);
         c_stream.add_bits_fast(0b101, 30);
@@ -445,17 +442,16 @@ mod tests {
         let mut d_stream = BitDStreamReverse::new(out);
         assert_eq!(d_stream.read_bits_fast(5), 0b1111);
         assert_eq!(d_stream.read_bits_fast(5), 0b0111);
-        d_stream.reload_stream(&out);
+        d_stream.reload_stream(out);
         assert_eq!(d_stream.read_bits_fast(5), 0b0011);
         assert_eq!(d_stream.read_bits_fast(5), 0b0001);
-        d_stream.reload_stream(&out);
+        d_stream.reload_stream(out);
         assert_eq!(d_stream.read_bits_fast(30), 0b101);
         assert_eq!(d_stream.read_bits_fast(30), 0b111);
     }
     #[test]
     fn test_stream_many_reload() {
-        let mut data: Vec<u8> = Vec::new();
-        data.resize(50, 0);
+        let mut data: Vec<u8> = vec![0; 50];
         let mut c_stream = BitCstream::new();
         c_stream.add_bits_fast(0b111, 30);
         c_stream.add_bits_fast(0b101, 30);
@@ -471,15 +467,15 @@ mod tests {
 
         let mut d_stream = BitDStreamReverse::new(out);
         assert_eq!(d_stream.read_bits_fast(5), 0b1111);
-        d_stream.reload_stream(&out);
+        d_stream.reload_stream(out);
         assert_eq!(d_stream.read_bits_fast(5), 0b0111);
-        d_stream.reload_stream(&out);
+        d_stream.reload_stream(out);
         assert_eq!(d_stream.read_bits_fast(5), 0b0011);
-        d_stream.reload_stream(&out);
+        d_stream.reload_stream(out);
         assert_eq!(d_stream.read_bits_fast(5), 0b0001);
-        d_stream.reload_stream(&out);
+        d_stream.reload_stream(out);
         assert_eq!(d_stream.read_bits_fast(30), 0b101);
-        d_stream.reload_stream(&out);
+        d_stream.reload_stream(out);
         assert_eq!(d_stream.read_bits_fast(30), 0b111);
     }
 }

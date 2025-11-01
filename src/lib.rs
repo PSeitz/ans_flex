@@ -23,11 +23,11 @@ use crate::table::DecompressionTable;
 use crate::compress::fse_compress;
 use crate::table::build_compression_table;
 use bitstream::BitCstreamOwned;
-use common::{count_simple, fse_optimal_table_log};
 use common::get_max_symbol_value;
 use common::get_normalized_counts;
 use common::CountsTable;
 use common::NormCountsTable;
+use common::{count_simple, fse_optimal_table_log};
 
 pub mod compress;
 pub mod decompress;
@@ -53,6 +53,7 @@ fn fse_tablestep(table_size: usize) -> usize {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct Counts {
     counts: CountsTable,
     total: usize,
@@ -64,7 +65,6 @@ struct Counts {
 pub fn get_ans_table_size(mut table_log: u32, max_symbol_value: u32) -> u32 {
     table_log = table_log.min(FSE_TABLELOG_ABSOLUTE_MAX);
 
-    
     1 + (1 << (table_log - 1)) + ((max_symbol_value + 1) * 2)
 }
 
@@ -95,7 +95,6 @@ pub fn compress(input: &[u8]) -> BitCstreamOwned {
     let norm_counts = get_normalized_counts(&counts, table_log, input.len(), max_symbol_value);
     let comp_tables = build_compression_table(&norm_counts, table_log, max_symbol_value);
 
-    
     fse_compress(input, &comp_tables, table_log)
 }
 
@@ -115,12 +114,7 @@ pub fn decompress(
     output
 }
 
-pub fn fse_decompress(
-    output: &mut Vec<u8>,
-    input: &[u8],
-    table: &DecompressionTable,
-    table_log: u32,
-) {
+pub fn fse_decompress(output: &mut [u8], input: &[u8], table: &DecompressionTable, table_log: u32) {
     other_fse_decompress(output, input, table, table_log)
 }
 

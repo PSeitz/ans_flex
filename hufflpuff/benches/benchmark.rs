@@ -5,12 +5,12 @@ use hufflpuff::build_tree_fast;
 use hufflpuff::build_tree_heap;
 use hufflpuff::count_simple;
 
-const COMPRESSION1K: &'static [u8] = include_bytes!("../../test_data/compression_1k.txt");
-const COMPRESSION34K: &'static [u8] = include_bytes!("../../test_data/compression_34k.txt");
-const COMPRESSION65K: &'static [u8] = include_bytes!("../../test_data/compression_65k.txt");
-const COMPRESSION66K: &'static [u8] = include_bytes!("../../test_data/compression_66k_JSON.txt");
-const COMPRESSION19K: &'static [u8] = include_bytes!("../../test_data/v4_uuids_19k.txt");
-const COMPRESSION93K: &'static [u8] = include_bytes!("../../test_data/v4_uuids_93k.txt");
+const COMPRESSION1K: &[u8] = include_bytes!("../../test_data/compression_1k.txt");
+const COMPRESSION34K: &[u8] = include_bytes!("../../test_data/compression_34k.txt");
+const COMPRESSION65K: &[u8] = include_bytes!("../../test_data/compression_65k.txt");
+const COMPRESSION66K: &[u8] = include_bytes!("../../test_data/compression_66k_JSON.txt");
+const COMPRESSION19K: &[u8] = include_bytes!("../../test_data/v4_uuids_19k.txt");
+const COMPRESSION93K: &[u8] = include_bytes!("../../test_data/v4_uuids_93k.txt");
 // const COMPRESSION95K_VERY_GOOD_LOGO: &'static [u8] = include_bytes!("logo.jpg");
 
 const ALL: &[&[u8]] = &[
@@ -32,11 +32,8 @@ fn compression(c: &mut Criterion) {
             BenchmarkId::new("build_huf_tree_heap", input_bytes),
             &input,
             |b, i| {
-                let counts = count_simple(&i);
-                b.iter(|| {
-                    let tree = build_tree_heap(&counts);
-                    tree
-                });
+                let counts = count_simple(i);
+                b.iter(|| build_tree_heap(&counts));
             },
         );
         group.bench_with_input(
@@ -44,9 +41,8 @@ fn compression(c: &mut Criterion) {
             &input,
             |b, i| {
                 b.iter(|| {
-                    let counts = count_simple(&i);
-                    let tree = build_tree_heap(&counts);
-                    tree
+                    let counts = count_simple(i);
+                    build_tree_heap(&counts)
                 });
             },
         );
@@ -54,11 +50,8 @@ fn compression(c: &mut Criterion) {
             BenchmarkId::new("build_huf_tree_fast", input_bytes),
             &input,
             |b, i| {
-                let counts = count_simple(&i);
-                b.iter(|| {
-                    let tree = build_tree_fast(&counts);
-                    tree
-                });
+                let counts = count_simple(i);
+                b.iter(|| build_tree_fast(&counts));
             },
         );
         group.bench_with_input(
@@ -66,14 +59,13 @@ fn compression(c: &mut Criterion) {
             &input,
             |b, i| {
                 b.iter(|| {
-                    let counts = count_simple(&i);
-                    let tree = build_tree_fast(&counts);
-                    tree
+                    let counts = count_simple(i);
+                    build_tree_fast(&counts)
                 });
             },
         );
         group.bench_with_input(BenchmarkId::new("count", input_bytes), &input, |b, i| {
-            b.iter(|| count_simple(&i));
+            b.iter(|| count_simple(i));
         });
     }
     group.finish();

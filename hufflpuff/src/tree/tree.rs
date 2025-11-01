@@ -86,6 +86,6 @@ impl Tree {
 
 impl std::fmt::Display for Tree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        render_plan_to(&self, f)
+        render_plan_to(self, f)
     }
 }

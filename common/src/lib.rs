@@ -101,6 +101,7 @@ pub fn get_normalized_counts(
         norm_counts[largest as usize] += still_to_distribute as i16;
     }
 
+    #[allow(clippy::needless_range_loop)]
     if log_enabled!(Trace) {
         let mut n_total = 0;
         for symbol in 0..=max_symbol_value as usize {
@@ -316,7 +317,7 @@ pub const FSE_MAX_SYMBOL_VALUE: u32 = u8::MAX as u32;
 pub const HIST_WKSP_SIZE_U32: usize = 1024;
 pub const HIST_WKSP_SIZE: usize = HIST_WKSP_SIZE_U32 * core::mem::size_of::<usize>();
 
-pub fn fse_NCountWriteBound(max_symbol_value: u32, table_log: u32) -> u32 {
+pub fn fse_ncount_write_bound(max_symbol_value: u32, table_log: u32) -> u32 {
     let max_header_size = (((max_symbol_value + 1) * table_log) >> 3) + 3;
     if max_symbol_value == 0 {
         FSE_NCOUNTBOUND
@@ -326,7 +327,7 @@ pub fn fse_NCountWriteBound(max_symbol_value: u32, table_log: u32) -> u32 {
 }
 
 /// write count metadata into header which is used by FSE and hufmann
-pub fn FSE_write_N_Count(
+pub fn fse_write_n_count(
     out: &mut [u8],
     norm_counts: &NormCountsTable,
     max_symbol_value: u32,
@@ -339,7 +340,7 @@ pub fn FSE_write_N_Count(
     if table_log < FSE_MIN_TABLELOG {
         return Err(HistError::TableLogTooSmall);
     }
-    if out.len() < fse_NCountWriteBound(max_symbol_value, table_log) as usize {
+    if out.len() < fse_ncount_write_bound(max_symbol_value, table_log) as usize {
         fse_write_n_count_generic(out, norm_counts, max_symbol_value, table_log, false)
     } else {
         fse_write_n_count_generic(out, norm_counts, max_symbol_value, table_log, true)
@@ -447,7 +448,7 @@ pub fn fse_write_n_count_generic(
     }
     out[0] = bit_stream as u8;
     out[1] = (bit_stream >> 8) as u8;
-    out = &mut out[(bit_count as usize + 7) / 8..];
+    out = &mut out[(bit_count as usize).div_ceil(8)..];
     let bytes_written = out_len - out.len();
     Ok(bytes_written)
 }
@@ -613,12 +614,8 @@ mod tests {
         //.unwrap();
         let (norm_counts, mut max_symbol_value, table_log) =
             get_normalized_counts_from_data(test_data);
-        let mut out = vec![];
-        out.resize(
-            fse_NCountWriteBound(max_symbol_value, table_log) as usize,
-            0,
-        );
-        let bytes_written = FSE_write_N_Count(
+        let mut out = vec![0; fse_ncount_write_bound(max_symbol_value, table_log) as usize];
+        let bytes_written = fse_write_n_count(
             out.as_mut_slice(),
             &norm_counts,
             max_symbol_value,

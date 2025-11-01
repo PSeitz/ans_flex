@@ -18,8 +18,7 @@ use common::get_normalized_counts;
 // }
 
 fn main() {
-    const COMPRESSION66K: &[u8] =
-        include_bytes!("../../test_data/compression_66k_JSON.txt");
+    const COMPRESSION66K: &[u8] = include_bytes!("../../test_data/compression_66k_JSON.txt");
     let test_data = COMPRESSION66K;
     let mut len = 0;
     // let yo = compress(COMPRESSION66K);

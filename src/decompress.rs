@@ -22,12 +22,7 @@ impl FseDState {
 ///
 ///
 #[inline]
-pub fn fse_decompress(
-    output: &mut Vec<u8>,
-    input: &[u8],
-    table: &DecompressionTable,
-    table_log: u32,
-) {
+pub fn fse_decompress(output: &mut [u8], input: &[u8], table: &DecompressionTable, table_log: u32) {
     let mut bit_stream = BitDStreamReverse::new(input);
 
     let mut state1 = FseDState::new(&mut bit_stream, table_log, input);

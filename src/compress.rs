@@ -41,12 +41,11 @@ fn fse_compressbound(size: usize) -> usize {
 }
 
 #[inline]
-pub fn fse_compress<'a>(input: &[u8], comp: &CompressionTable, table_log: u32) -> BitCstreamOwned {
+pub fn fse_compress(input: &[u8], comp: &CompressionTable, table_log: u32) -> BitCstreamOwned {
     assert!(input.len() > 2);
     let max_compressed_size = fse_compressbound(input.len());
 
-    let mut data: Vec<u8> = Vec::new();
-    data.resize(max_compressed_size, 0);
+    let mut data: Vec<u8> = vec![0; max_compressed_size];
     let mut bit_c = BitCstream::new();
 
     // let mut bit_c = BitCstream::new(max_compressed_size);

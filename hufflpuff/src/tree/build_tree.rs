@@ -69,15 +69,15 @@ pub fn build_tree_fast_1(counts: &[usize; 256]) -> Tree {
                 decrement_return_old(&mut parent_check_pos)
             }
         };
-        debug_assert!(nodes[node1_pos as usize].count != 0);
+        debug_assert!(nodes[node1_pos].count != 0);
 
         nodes[parent_create_pos] = Node {
-            count: nodes[node1_pos as usize].count + nodes[node2_pos as usize].count,
+            count: nodes[node1_pos].count + nodes[node2_pos].count,
             ..Default::default()
         };
 
         nodes[parent_create_pos].left = Some(node1_pos as u16);
-        if nodes[node2_pos as usize].count != 0 {
+        if nodes[node2_pos].count != 0 {
             nodes[parent_create_pos].right = Some(node2_pos as u16);
         } else if nodes[parent_check_pos].count != 0 {
             // could be part of the node2_pos check above, but it is only valid in the last case
@@ -92,11 +92,11 @@ pub fn build_tree_fast_1(counts: &[usize; 256]) -> Tree {
     while parent_check_pos - 1 > parent_create_pos {
         let node1_pos = decrement_return_old(&mut parent_check_pos);
         let node2_pos = decrement_return_old(&mut parent_check_pos);
-        if nodes[node1_pos as usize].count == 0 || nodes[node2_pos as usize].count == 0 {
+        if nodes[node1_pos].count == 0 || nodes[node2_pos].count == 0 {
             break;
         }
         nodes[parent_create_pos] = Node {
-            count: nodes[node1_pos as usize].count + nodes[node2_pos as usize].count,
+            count: nodes[node1_pos].count + nodes[node2_pos].count,
             left: Some(node1_pos as u16),
             right: Some(node2_pos as u16),
             ..Default::default()
@@ -122,12 +122,11 @@ pub fn build_tree_fast_1(counts: &[usize; 256]) -> Tree {
         }
     }
 
-    let tree = Tree {
+    Tree {
         nodes: nodes.to_vec(),
         root_node,
         last_symbol_node_pos,
-    };
-    tree
+    }
 }
 
 /// converts the tree into a table with prefixes for each symbol
@@ -143,7 +142,7 @@ pub fn tree_to_table(tree: &Tree) -> [MinNode; 256] {
         .enumerate()
         .filter(|(_depth, num_nodes)| **num_nodes != 0)
         .map(|(depth, _num_nodes)| depth)
-        .last()
+        .next_back()
         .unwrap();
 
     // assign start values, starting at end of tree
@@ -153,7 +152,7 @@ pub fn tree_to_table(tree: &Tree) -> [MinNode; 256] {
     let mut min = 0;
     for depth in (0..=max_depth).rev() {
         node_values_per_depth[depth] = min;
-        min += num_nodes_per_depth[depth] as u16;
+        min += num_nodes_per_depth[depth];
         // shift out one bit
         // not completely sure where it comes from. maybe the differentiator bit to move
         // to the next depth (depth == num bits)?
@@ -218,7 +217,7 @@ pub fn set_max_height(tree: &mut Tree, max_bits: u8) {
             depth_index[check_depth as usize].start += 1;
             depth_index[check_depth as usize + 1].end += 1;
             // repay debt
-            let repay = 1 << max_bits - check_depth - 1;
+            let repay = 1 << (max_bits - check_depth - 1);
             // to allow multiple demotes of one symbol, we need to go back one level again
             if check_depth != max_bits - 1 {
                 check_depth += 1;
@@ -403,8 +402,8 @@ mod tests {
         assert_eq!(index[4].end, 5);
         assert_eq!(index[5].start, 0);
         assert_eq!(index[5].end, 2);
-        assert_eq!(index[3].is_empty(), true);
-        assert_eq!(index[5].is_empty(), false);
+        assert!(index[3].is_empty());
+        assert!(!index[5].is_empty());
     }
 
     #[test]

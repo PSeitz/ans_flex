@@ -1,9 +1,7 @@
 use crate::tree::tree_node::MinNode;
 use crate::HUF_TABLELOG_MAX;
 use bitstream::BitCstream;
-use bitstream::BitDStreamReverse;
 use bitstream::NUM_BITS_IN_BIT_CONTAINER;
-use common::NormCountsTable;
 
 /// compress input to dst in reverse order
 pub fn compress_1x_rev(table: &[MinNode], input: &[u8], dst: &mut [u8]) {
@@ -14,25 +12,25 @@ pub fn compress_1x_rev(table: &[MinNode], input: &[u8], dst: &mut [u8]) {
     let mod_4 = input.len() & 3;
     if mod_4 >= 3 {
         index -= 1;
-        huf_encode_symbol(input[index], &mut bit_c, &table);
+        huf_encode_symbol(input[index], &mut bit_c, table);
         huf_flush_bits_2(&mut bit_c, dst);
     }
     if mod_4 >= 2 {
         index -= 1;
-        huf_encode_symbol(input[index], &mut bit_c, &table);
+        huf_encode_symbol(input[index], &mut bit_c, table);
         huf_flush_bits_1(&mut bit_c, dst);
     }
     if mod_4 >= 1 {
         index -= 1;
-        huf_encode_symbol(input[index], &mut bit_c, &table);
+        huf_encode_symbol(input[index], &mut bit_c, table);
         bit_c.flush_bits_fast(dst);
     }
 
     for chunk in input[..index].rchunks_exact(4) {
-        huf_encode_symbol(chunk[3], &mut bit_c, &table);
-        huf_encode_symbol(chunk[2], &mut bit_c, &table);
-        huf_encode_symbol(chunk[1], &mut bit_c, &table);
-        huf_encode_symbol(chunk[0], &mut bit_c, &table);
+        huf_encode_symbol(chunk[3], &mut bit_c, table);
+        huf_encode_symbol(chunk[2], &mut bit_c, table);
+        huf_encode_symbol(chunk[1], &mut bit_c, table);
+        huf_encode_symbol(chunk[0], &mut bit_c, table);
         bit_c.flush_bits_fast(dst);
     }
     bit_c.finish_stream(dst);
@@ -69,8 +67,8 @@ mod tests {
 
     #[test]
     fn test_compress() {
-        const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/compression_65k.txt");
-        let counts = count_simple(&TEST_DATA);
+        const TEST_DATA: &[u8] = include_bytes!("../../test_data/compression_65k.txt");
+        let counts = count_simple(TEST_DATA);
         let tree = build_tree_fast(&counts);
         println!(
             "estimate_compressed_size: {:?}",
@@ -82,15 +80,14 @@ mod tests {
         );
 
         let table = tree_to_table(&tree);
-        let mut out = vec![];
-        out.resize(tree.estimate_compressed_size() + 16, 0);
+        let mut out = vec![0; tree.estimate_compressed_size() + 16];
         compress_1x_rev(&table, TEST_DATA, &mut out);
     }
 
     #[test]
     fn test_compress_simple() {
-        const TEST_DATA: &'static [u8] = &[1, 1, 2, 3, 1, 1];
-        let counts = count_simple(&TEST_DATA);
+        const TEST_DATA: &[u8] = &[1, 1, 2, 3, 1, 1];
+        let counts = count_simple(TEST_DATA);
         let tree = build_tree_fast(&counts);
         println!(
             "estimate_compressed_size: {:?}",
@@ -102,8 +99,7 @@ mod tests {
         );
 
         let table = tree_to_table(&tree);
-        let mut out = vec![];
-        out.resize(tree.estimate_compressed_size() + 16, 0);
+        let mut out = vec![0; tree.estimate_compressed_size() + 16];
         compress_1x_rev(&table, TEST_DATA, &mut out);
         println!("{:08b}", out[0]);
         println!("{:08b}", out[1]);

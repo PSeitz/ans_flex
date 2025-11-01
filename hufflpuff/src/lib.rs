@@ -46,6 +46,7 @@ pub fn huf_compressbound(size: usize) -> usize {
 // }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct HuffmanCodes {
     /// symbol to code length
     code_length: [u8; 8],
@@ -161,8 +162,7 @@ mod tests {
         let tree = build_tree_fast(&counts);
 
         let table = tree_to_table(&tree);
-        let mut out = vec![];
-        out.resize(tree.estimate_compressed_size() + 16, 0);
+        let mut out = vec![0; tree.estimate_compressed_size() + 16];
         compress_1x_rev(&table, &test_data, &mut out);
 
         // compress_1x_rev(table: &[MinNode], input: &[u8], dst: &mut [u8]) {
@@ -204,7 +204,7 @@ mod tests {
 
         for (num, repeat) in fibo_counts.iter().enumerate() {
             std::io::repeat(num as u8)
-                .take(*repeat as u64)
+                .take(*repeat)
                 .read_to_end(&mut all_bytes)
                 .unwrap();
         }
@@ -212,7 +212,7 @@ mod tests {
     }
 
     fn test_fibonacci(fibo_counts: &[u64]) {
-        let all_bytes = gen_fibo_distribution(&fibo_counts);
+        let all_bytes = gen_fibo_distribution(fibo_counts);
 
         let counts = count_simple(&all_bytes);
         let tree = build_tree_fast(&counts);
@@ -257,7 +257,7 @@ mod tests {
                 assert!(child_left.count < node.count);
             }
         });
-        test_prefix_property(&tree_to_table(&tree));
+        test_prefix_property(&tree_to_table(tree));
     }
 
     // #[test]
@@ -278,7 +278,7 @@ mod tests {
     // }
     #[test]
     fn test_66k_json() {
-        const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/compression_66k_JSON.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../../test_data/compression_66k_JSON.txt");
         let tree = test_tree(TEST_DATA);
         println!(
             "estimate_compressed_size: {:?}",
@@ -291,8 +291,8 @@ mod tests {
     }
     #[test]
     fn test_65k_text() {
-        const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/compression_65k.txt");
-        let counts = count_simple(&TEST_DATA);
+        const TEST_DATA: &[u8] = include_bytes!("../../test_data/compression_65k.txt");
+        let counts = count_simple(TEST_DATA);
         let tree = build_tree_fast(&counts);
         validate_tree(&tree);
         println!(
@@ -306,28 +306,28 @@ mod tests {
     }
     #[test]
     fn test_34k_text() {
-        const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/compression_34k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../../test_data/compression_34k.txt");
         test_tree(TEST_DATA);
     }
     #[test]
     fn test_1k_text() {
-        const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/compression_1k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../../test_data/compression_1k.txt");
         test_tree(TEST_DATA);
     }
 
     #[test]
     fn test_v4_uuids_19_k() {
-        const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/v4_uuids_19k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../../test_data/v4_uuids_19k.txt");
         test_tree(TEST_DATA);
     }
     #[test]
     fn test_v4_uuids_93_k() {
-        const TEST_DATA: &'static [u8] = include_bytes!("../../test_data/v4_uuids_93k.txt");
+        const TEST_DATA: &[u8] = include_bytes!("../../test_data/v4_uuids_93k.txt");
         test_tree(TEST_DATA);
     }
 
     fn test_tree(data: &[u8]) -> tree::Tree {
-        let counts = count_simple(&data);
+        let counts = count_simple(data);
         let tree = build_tree_fast(&counts);
         validate_tree(&tree);
         tree

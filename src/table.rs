@@ -166,8 +166,7 @@ pub fn build_compression_table(
                 0 => {
                     if log_enabled!(Debug) {
                         // For compatibility with fse_get_max_nb_bits()
-                        symbol_tt[symbol].delta_nb_bits =
-                            ((table_log + 1) << 16) - (1 << table_log)
+                        symbol_tt[symbol].delta_nb_bits = ((table_log + 1) << 16) - (1 << table_log)
                     }
                 }
                 -1 | 1 => {

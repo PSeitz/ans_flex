@@ -15,9 +15,9 @@ pub struct Node {
     // parent: Option<u16>,
 }
 
-impl std::cmp::PartialOrd for Node {
+impl PartialOrd for Node {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(other.count.cmp(&self.count))
+        Some(self.cmp(other))
     }
 }
 
