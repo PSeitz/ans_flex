@@ -145,12 +145,8 @@ pub fn count_multi(input: &[u8]) -> CountsTable {
     let mut counts2 = [0_u32; 256];
     let mut counts3 = [0_u32; 256];
     let mut counts4 = [0_u32; 256];
-    // let mut counts5 = [0_u32; 256];
-    // let mut counts6 = [0_u32; 256];
-    // let mut counts7 = [0_u32; 256];
-    // let mut counts8 = [0_u32; 256];
 
-    let offset = input.as_ptr().align_offset(core::mem::align_of::<usize>());
+    let offset = input.as_ptr().align_offset(64);
     let (left, right) = input.split_at(offset);
     for el in left {
         counts1[*el as usize] += 1;
@@ -158,22 +154,14 @@ pub fn count_multi(input: &[u8]) -> CountsTable {
 
     let mut iter = right.chunks_exact(8);
     for chunks in &mut iter {
-        counts1[chunks[0] as usize] = counts1[chunks[0] as usize].saturating_add(1);
-        counts2[chunks[1] as usize] = counts2[chunks[1] as usize].saturating_add(1);
-        counts3[chunks[2] as usize] = counts3[chunks[2] as usize].saturating_add(1);
-        counts4[chunks[3] as usize] = counts4[chunks[3] as usize].saturating_add(1);
-        counts1[chunks[4] as usize] = counts1[chunks[4] as usize].saturating_add(1);
-        counts2[chunks[5] as usize] = counts2[chunks[5] as usize].saturating_add(1);
-        counts3[chunks[6] as usize] = counts3[chunks[6] as usize].saturating_add(1);
-        counts4[chunks[7] as usize] = counts4[chunks[7] as usize].saturating_add(1);
-        // counts1[chunks[8] as usize] += 1;
-        // counts2[chunks[9] as usize] += 1;
-        // counts3[chunks[10] as usize] += 1;
-        // counts4[chunks[11] as usize] += 1;
-        // counts5[chunks[12] as usize] += 1;
-        // counts6[chunks[13] as usize] += 1;
-        // counts7[chunks[14] as usize] += 1;
-        // counts8[chunks[15] as usize] += 1;
+        counts1[chunks[0] as usize] += 1;
+        counts2[chunks[1] as usize] += 1;
+        counts3[chunks[2] as usize] += 1;
+        counts4[chunks[3] as usize] += 1;
+        counts1[chunks[4] as usize] += 1;
+        counts2[chunks[5] as usize] += 1;
+        counts3[chunks[6] as usize] += 1;
+        counts4[chunks[7] as usize] += 1;
     }
 
     for el in iter.remainder() {
@@ -188,14 +176,54 @@ pub fn count_multi(input: &[u8]) -> CountsTable {
         *el1 += *el2 + *el3 + *el4;
     }
 
-    // let iter = counts1.iter_mut().zip(counts2.iter_mut().zip(counts3.iter_mut().zip(counts4.iter_mut().zip(counts5.iter_mut().zip(counts6.iter_mut().zip(counts7.iter_mut().zip(counts8.iter_mut())))))));
+    counts1
+}
 
-    // for (el1, (el2, (el3, (el4, (el5, (el6, (el7, el8))))))) in iter {
-    //     *el1 += *el2 + *el3 + *el4 + *el5 + *el6 + *el7 + *el8 ;
-    // }
+/// creates a table with the counts of each symbol
+#[inline]
+pub fn count_multi2(input: &[u8]) -> CountsTable {
+    let mut counts1 = [0_u32; 256];
+    let mut counts2 = [0_u32; 256];
+    let mut counts3 = [0_u32; 256];
+    let mut counts4 = [0_u32; 256];
+
+    let offset = input.as_ptr().align_offset(64);
+    let (left, right) = input.split_at(offset);
+    for el in left {
+        counts1[*el as usize] += 1;
+    }
+
+    let mut iter = right.chunks_exact(4096);
+    for chunk_4k in &mut iter {
+        // Now we add multiple read positions here (8 read postiions)
+        let inner_iter = chunk_4k.chunks_exact(8);
+        for chunks in inner_iter {
+            counts1[chunks[0] as usize] += 1;
+            counts2[chunks[1] as usize] += 1;
+            counts3[chunks[2] as usize] += 1;
+            counts4[chunks[3] as usize] += 1;
+            counts1[chunks[4] as usize] += 1;
+            counts2[chunks[5] as usize] += 1;
+            counts3[chunks[6] as usize] += 1;
+            counts4[chunks[7] as usize] += 1;
+        }
+    }
+
+    for el in iter.remainder() {
+        counts1[*el as usize] += 1;
+    }
+
+    let iter = counts1
+        .iter_mut()
+        .zip(counts2.iter().zip(counts3.iter().zip(counts4.iter())));
+
+    for (el1, (el2, (el3, el4))) in iter {
+        *el1 += *el2 + *el3 + *el4;
+    }
 
     counts1
 }
+
 /// creates a table with the counts of each symbol
 #[inline]
 pub fn count_blocked_unsafe(input: &[u8]) -> Vec<u32> {
